@@ -73,6 +73,26 @@ public final class GameSimulation {
         rightFlipper.collide(ball);
     }
 
+    public void reset() {
+        ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM));
+        ball.setVelocity(new Vec2(0.0f, 0.0f));
+        leftFlipper.reset();
+        rightFlipper.reset();
+        ballInLauncher = true;
+        launchWasPressed = false;
+        nudgeLeftWasPressed = false;
+        nudgeRightWasPressed = false;
+        launcherPathActive = false;
+        launcherPower = 0.0f;
+        launcherPathTime = 0.0f;
+        launcherPathDuration = 0.0f;
+        nudgeCooldown = 0.0f;
+        stationaryTime = 0.0f;
+        score = 0;
+        ballsRemaining = STARTING_BALLS;
+        gameOver = false;
+    }
+
     private void updateNudge(float deltaSeconds, InputState input) {
         nudgeCooldown = Math.max(0.0f, nudgeCooldown - deltaSeconds);
         boolean leftPressed = input.nudgeLeft();

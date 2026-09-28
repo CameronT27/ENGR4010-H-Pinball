@@ -27,6 +27,11 @@ public final class Flipper {
         angularVelocity = deltaSeconds > 0.0f ? step / deltaSeconds : 0.0f;
     }
 
+    public void reset() {
+        angle = restAngle;
+        angularVelocity = 0.0f;
+    }
+
     public void collide(Ball ball) {
         Vec2 direction = new Vec2((float) Math.cos(angle), (float) Math.sin(angle));
         Vec2 collisionPosition = ball.position();
