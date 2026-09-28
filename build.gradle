@@ -103,7 +103,7 @@ tasks.register('packageApp', Exec) {
             jpackageArguments += ['--java-options', '-XstartOnFirstThread']
         }
 
-        commandLine 'jpackage', *jpackageArguments
+        commandLine(['jpackage'] + jpackageArguments)
     }
 }
 
