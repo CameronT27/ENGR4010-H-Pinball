@@ -29,16 +29,32 @@ public final class Flipper {
 
     public void collide(Ball ball) {
         Vec2 direction = new Vec2((float) Math.cos(angle), (float) Math.sin(angle));
-        Vec2 pivotToBall = ball.position().subtract(pivot);
-        float projection = Math.max(0.0f, Math.min(1.0f, pivotToBall.dot(direction) / length));
-        Vec2 closest = pivot.add(direction.multiply(projection));
-        Vec2 separation = ball.position().subtract(closest);
-        float distance = separation.length();
-        float minimumDistance = ball.radius() + radius;
+        Vec2 collisionPosition = ball.position();
+        Vec2 closest = closestPoint(collisionPosition, direction);
+        float distance = collisionPosition.subtract(closest).length();
+        float minimumDistance = ball.radius() + radius + 2.0f;
+
+        if (distance >= minimumDistance) {
+            Vec2 travel = ball.position().subtract(ball.previousPosition());
+            for (int sampleIndex = 1; sampleIndex <= 8; sampleIndex++) {
+                float progress = sampleIndex / 8.0f;
+                Vec2 sample = ball.previousPosition().add(travel.multiply(progress));
+                Vec2 sampleClosest = closestPoint(sample, direction);
+                float sampleDistance = sample.subtract(sampleClosest).length();
+                if (sampleDistance < minimumDistance) {
+                    collisionPosition = sample;
+                    closest = sampleClosest;
+                    distance = sampleDistance;
+                    break;
+                }
+            }
+        }
+
         if (distance >= minimumDistance) {
             return;
         }
 
+        Vec2 separation = collisionPosition.subtract(closest);
         Vec2 normal = distance > 0.0001f ? separation.multiply(1.0f / distance) : direction;
         ball.setPosition(closest.add(normal.multiply(minimumDistance)));
         Vec2 contactOffset = closest.subtract(pivot);
@@ -49,6 +65,12 @@ public final class Flipper {
             Vec2 reflected = relativeVelocity.subtract(normal.multiply(1.8f * normalSpeed));
             ball.setVelocity(reflected.add(surfaceVelocity));
         }
+    }
+
+    private Vec2 closestPoint(Vec2 point, Vec2 direction) {
+        Vec2 pivotToPoint = point.subtract(pivot);
+        float projection = Math.max(0.0f, Math.min(length, pivotToPoint.dot(direction)));
+        return pivot.add(direction.multiply(projection));
     }
 
     public Vec2 pivot() {

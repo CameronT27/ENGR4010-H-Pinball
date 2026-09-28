@@ -144,27 +144,33 @@ public final class Main {
         drawPolygon(new Vec2(18.0f, 18.0f), new Vec2(702.0f, 18.0f),
             new Vec2(702.0f, 1182.0f), new Vec2(18.0f, 1182.0f));
         glColor3f(0.04f, 0.24f, 0.27f);
-        drawPolygon(new Vec2(150.0f, 34.0f), new Vec2(570.0f, 34.0f),
-            new Vec2(672.0f, 1148.0f), new Vec2(48.0f, 1148.0f));
+        drawPolygon(new Vec2(48.0f, 34.0f), new Vec2(580.0f, 34.0f),
+            new Vec2(580.0f, 1148.0f), new Vec2(48.0f, 1148.0f));
 
         drawPlayfieldDetails();
 
         glColor3f(0.8f, 0.5f, 0.18f);
         glLineWidth(10.0f);
         glBegin(GL_LINE_LOOP);
-        glVertex2f(150.0f, 34.0f);
-        glVertex2f(570.0f, 34.0f);
-        glVertex2f(672.0f, 1148.0f);
+        glVertex2f(48.0f, 34.0f);
+        glVertex2f(580.0f, 34.0f);
+        glVertex2f(580.0f, 1148.0f);
         glVertex2f(48.0f, 1148.0f);
         glEnd();
 
         glColor3f(0.25f, 0.9f, 0.8f);
         glLineWidth(4.0f);
         glBegin(GL_LINES);
-        glVertex2f(150.0f, 48.0f);
-        glVertex2f(55.0f, 1140.0f);
-        glVertex2f(570.0f, 48.0f);
-        glVertex2f(665.0f, 1140.0f);
+        glVertex2f(60.0f, 48.0f);
+        glVertex2f(60.0f, 1140.0f);
+        glVertex2f(580.0f, 48.0f);
+        glVertex2f(580.0f, 1140.0f);
+        glEnd();
+
+        glColor3f(0.06f, 0.32f, 0.3f);
+        glBegin(GL_QUADS);
+        drawWall(28.0f, 20.0f, 20.0f, 1160.0f);
+        drawWall(672.0f, 20.0f, 20.0f, 1160.0f);
         glEnd();
 
         glColor3f(0.04f, 0.14f, 0.17f);

@@ -19,10 +19,10 @@ public final class GameSimulation {
     private static final int STARTING_BALLS = 3;
 
         private final Ball ball = new Ball(new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM), 14.0f);
-        private final Flipper leftFlipper = new Flipper(new Vec2(255.0f, 140.0f), 150.0f,
-            (float) Math.toRadians(18.0), (float) Math.toRadians(54.0), 8.0f, 12.0f);
-        private final Flipper rightFlipper = new Flipper(new Vec2(465.0f, 140.0f), 150.0f,
-            (float) Math.toRadians(162.0), (float) Math.toRadians(126.0), 8.0f, 12.0f);
+            private final Flipper leftFlipper = new Flipper(new Vec2(245.0f, 115.0f), 105.0f,
+                (float) Math.toRadians(-20.0), (float) Math.toRadians(25.0), 8.0f, 12.0f);
+            private final Flipper rightFlipper = new Flipper(new Vec2(475.0f, 115.0f), 105.0f,
+                (float) Math.toRadians(200.0), (float) Math.toRadians(155.0), 8.0f, 12.0f);
     private final Vec2[] bumpers = {
             new Vec2(230.0f, 730.0f), new Vec2(360.0f, 825.0f), new Vec2(490.0f, 730.0f)
     };
