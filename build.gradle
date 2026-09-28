@@ -1,0 +1,78 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+def lwjglVersion = '3.4.3'
+def lwjglNatives = {
+    def osName = System.getProperty('os.name').toLowerCase()
+    def osArch = System.getProperty('os.arch').toLowerCase()
+
+    if (osName.contains('mac')) {
+        if (osArch.contains('aarch64') || osArch.contains('arm64')) {
+            return 'natives-macos-arm64'
+        }
+        if (osArch.contains('amd64') || osArch.contains('x86_64')) {
+            return 'natives-macos'
+        }
+    }
+    if (osName.contains('win')) {
+        if (osArch.contains('aarch64') || osArch.contains('arm64')) {
+            return 'natives-windows-arm64'
+        }
+        if (osArch.contains('x86') || osArch.contains('i386')) {
+            return 'natives-windows-x86'
+        }
+        if (osArch.contains('amd64') || osArch.contains('x86_64')) {
+            return 'natives-windows'
+        }
+    }
+    if (osName.contains('linux')) {
+        if (osArch.contains('aarch64') || osArch.contains('arm64')) {
+            return 'natives-linux-arm64'
+        }
+        if (osArch.contains('arm')) {
+            return 'natives-linux-arm32'
+        }
+        if (osArch.contains('ppc64le')) {
+            return 'natives-linux-ppc64le'
+        }
+        if (osArch.contains('riscv64')) {
+            return 'natives-linux-riscv64'
+        }
+        if (osArch.contains('amd64') || osArch.contains('x86_64')) {
+            return 'natives-linux'
+        }
+    }
+    if (osName.contains('freebsd')) {
+        return 'natives-freebsd'
+    }
+    throw new GradleException("Unsupported operating system: ${osName} ${osArch}")
+}()
+
+dependencies {
+    implementation "org.lwjgl:lwjgl:${lwjglVersion}"
+    implementation "org.lwjgl:lwjgl-glfw:${lwjglVersion}"
+    implementation "org.lwjgl:lwjgl-opengl:${lwjglVersion}"
+
+    runtimeOnly "org.lwjgl:lwjgl:${lwjglVersion}:${lwjglNatives}"
+    runtimeOnly "org.lwjgl:lwjgl-glfw:${lwjglVersion}:${lwjglNatives}"
+    runtimeOnly "org.lwjgl:lwjgl-opengl:${lwjglVersion}:${lwjglNatives}"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+application {
+    mainClass = 'Main'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
