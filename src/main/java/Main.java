@@ -1,6 +1,10 @@
-import org.lwjgl.glfw.GLFWErrorCallback;
-
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
+import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
 import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
@@ -8,6 +12,7 @@ import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
 import static org.lwjgl.glfw.GLFW.glfwGetKey;
 import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
+import static org.lwjgl.glfw.GLFW.glfwGetTime;
 import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
 import static org.lwjgl.glfw.GLFW.glfwInit;
 import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
@@ -19,11 +24,12 @@ import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
 import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
+import org.lwjgl.glfw.GLFWErrorCallback;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_LINES;
+import static org.lwjgl.opengl.GL11.GL_LINE_LOOP;
 import static org.lwjgl.opengl.GL11.GL_MODELVIEW;
+import static org.lwjgl.opengl.GL11.GL_POINTS;
 import static org.lwjgl.opengl.GL11.GL_PROJECTION;
 import static org.lwjgl.opengl.GL11.glBegin;
 import static org.lwjgl.opengl.GL11.glClear;
@@ -34,6 +40,7 @@ import static org.lwjgl.opengl.GL11.glLineWidth;
 import static org.lwjgl.opengl.GL11.glLoadIdentity;
 import static org.lwjgl.opengl.GL11.glMatrixMode;
 import static org.lwjgl.opengl.GL11.glOrtho;
+import static org.lwjgl.opengl.GL11.glPointSize;
 import static org.lwjgl.opengl.GL11.glVertex2f;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
@@ -58,14 +65,23 @@ public final class Main {
             glfwShowWindow(window);
             org.lwjgl.opengl.GL.createCapabilities();
             glClearColor(0.04f, 0.05f, 0.08f, 1.0f);
+            GameSimulation simulation = new GameSimulation();
+            InputState input = new InputState();
+            double previousTime = glfwGetTime();
 
             while (!glfwWindowShouldClose(window)) {
+                double currentTime = glfwGetTime();
+                float deltaSeconds = (float) (currentTime - previousTime);
+                previousTime = currentTime;
                 if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
                     glfwSetWindowShouldClose(window, true);
                 }
+                input.setLeftFlipper(isPressed(window, GLFW_KEY_A) || isPressed(window, GLFW_KEY_LEFT));
+                input.setRightFlipper(isPressed(window, GLFW_KEY_D) || isPressed(window, GLFW_KEY_RIGHT));
+                simulation.update(deltaSeconds, input);
 
                 glClear(GL_COLOR_BUFFER_BIT);
-                drawMessage();
+                drawTable(simulation);
                 glfwSwapBuffers(window);
                 glfwPollEvents();
             }
@@ -97,80 +113,51 @@ public final class Main {
         return window;
     }
 
-    private static void drawMessage() {
+    private static boolean isPressed(long window, int key) {
+        return glfwGetKey(window, key) == GLFW_PRESS;
+    }
+
+    private static void drawTable(GameSimulation simulation) {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
-        glColor3f(0.25f, 0.9f, 0.65f);
-        glLineWidth(6.0f);
+        glColor3f(0.15f, 0.8f, 0.65f);
+        glLineWidth(5.0f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(20.0f, 20.0f);
+        glVertex2f(WINDOW_WIDTH - 20.0f, 20.0f);
+        glVertex2f(WINDOW_WIDTH - 20.0f, WINDOW_HEIGHT - 20.0f);
+        glVertex2f(20.0f, WINDOW_HEIGHT - 20.0f);
+        glEnd();
+
+        glColor3f(0.95f, 0.45f, 0.2f);
+        glLineWidth(16.0f);
         glBegin(GL_LINES);
+        drawSegment(simulation.leftFlipper());
+        drawSegment(simulation.rightFlipper());
+        glEnd();
 
-        String message = "IT RUNS";
-        float x = 360.0f;
-        float y = 320.0f;
-        float size = 72.0f;
-        for (int index = 0; index < message.length(); index++) {
-            char character = message.charAt(index);
-            drawGlyph(character, x, y, size);
-            x += character == ' ' ? size * 0.6f : size * 0.9f;
+        glColor3f(0.95f, 0.75f, 0.2f);
+        glPointSize(18.0f);
+        glBegin(GL_POINTS);
+        for (Vec2 bumper : simulation.bumpers()) {
+            glVertex2f(bumper.x(), bumper.y());
         }
+        glEnd();
 
+        glColor3f(0.95f, 0.95f, 0.95f);
+        glPointSize(simulation.ball().radius() * 2.0f);
+        glBegin(GL_POINTS);
+        glVertex2f(simulation.ball().position().x(), simulation.ball().position().y());
         glEnd();
     }
 
-    private static void drawGlyph(char character, float x, float y, float size) {
-        float right = x + size * 0.65f;
-        float middle = y + size * 0.5f;
-        float top = y + size;
-
-        switch (character) {
-            case 'I' -> {
-                line(x, top, right, top);
-                line(x + size * 0.325f, top, x + size * 0.325f, y);
-                line(x, y, right, y);
-            }
-            case 'T' -> {
-                line(x, top, right, top);
-                line(x + size * 0.325f, top, x + size * 0.325f, y);
-            }
-            case 'R' -> {
-                line(x, y, x, top);
-                line(x, top, right * 0.98f, top);
-                line(right * 0.98f, top, right * 0.98f, middle);
-                line(right * 0.98f, middle, x, middle);
-                line(x + size * 0.325f, middle, right, y);
-            }
-            case 'U' -> {
-                line(x, top, x, y);
-                line(x, y, right, y);
-                line(right, y, right, top);
-            }
-            case 'N' -> {
-                line(x, y, x, top);
-                line(x, top, right, y);
-                line(right, y, right, top);
-            }
-            case 'S' -> {
-                line(right, top, x, top);
-                line(x, top, x, middle);
-                line(x, middle, right, middle);
-                line(right, middle, right, y);
-                line(right, y, x, y);
-            }
-            case '!' -> {
-                line(x + size * 0.325f, top, x + size * 0.325f, y + size * 0.2f);
-                line(x + size * 0.325f, y, x + size * 0.325f, y);
-            }
-            default -> {
-            }
-        }
+    private static void drawSegment(Flipper flipper) {
+        glVertex2f(flipper.pivot().x(), flipper.pivot().y());
+        glVertex2f(flipper.endpoint().x(), flipper.endpoint().y());
     }
 
-    private static void line(float x1, float y1, float x2, float y2) {
-        glVertex2f(x1, y1);
-        glVertex2f(x2, y2);
-    }
 }

@@ -2,7 +2,7 @@
 
 Online Pinball is a Java/LWJGL prototype for the ENGR4010-H capstone project.
 
-The current prototype opens a blank OpenGL window. Press `Escape` to close it.
+The current prototype opens an interactive OpenGL pinball table. The ball is affected by gravity and bounces off the table boundary, bumpers, and flippers.
 
 ## Requirements
 
@@ -48,7 +48,9 @@ On Windows, use `gradlew.bat compileJava` instead.
 
 ## Controls
 
-- `Escape`: close the prototype window
+- `A` or `Left Arrow`: activate the left flipper
+- `D` or `Right Arrow`: activate the right flipper
+- `Escape`: close the game window
 
 ## Troubleshooting
 
