@@ -79,6 +79,34 @@ tasks.named('run', JavaExec).configure {
     }
 }
 
+tasks.register('packageApp', Exec) {
+    dependsOn tasks.named('installDist')
+
+    doFirst {
+        def osName = System.getProperty('os.name').toLowerCase()
+        def packageType = osName.contains('mac') ? 'dmg' : osName.contains('win') ? 'exe' : 'app-image'
+        def inputDirectory = layout.buildDirectory.dir('install/OnlinePinball/lib').get().asFile
+        def outputDirectory = layout.buildDirectory.dir('jpackage').get().asFile
+
+        delete outputDirectory
+
+        def jpackageArguments = [
+                '--type', packageType,
+                '--input', inputDirectory.absolutePath,
+                '--dest', outputDirectory.absolutePath,
+                '--name', 'OnlinePinball',
+                '--main-jar', 'OnlinePinball.jar',
+                '--main-class', 'Main',
+                '--app-version', '1.0.0'
+        ]
+        if (osName.contains('mac')) {
+            jpackageArguments += ['--java-options', '-XstartOnFirstThread']
+        }
+
+        commandLine 'jpackage', *jpackageArguments
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
