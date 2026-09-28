@@ -8,7 +8,6 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_X;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
@@ -97,7 +96,7 @@ public final class Main {
             GameSimulation simulation = new GameSimulation();
             InputState input = new InputState();
             double previousTime = glfwGetTime();
-            boolean restartWasPressed = false;
+            boolean resetWasPressed = false;
 
             while (!glfwWindowShouldClose(window)) {
                 double currentTime = glfwGetTime();
@@ -106,25 +105,21 @@ public final class Main {
                 if (isPressed(window, GLFW_KEY_ESCAPE)) {
                     glfwSetWindowShouldClose(window, true);
                 }
-                if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+                boolean resetPressed = isPressed(window, GLFW_KEY_R);
+                if (resetPressed && !resetWasPressed) {
                     simulation.reset();
                 }
+                resetWasPressed = resetPressed;
                 input.setLeftFlipper(isPressed(window, GLFW_KEY_A) || isPressed(window, GLFW_KEY_LEFT));
                 input.setRightFlipper(isPressed(window, GLFW_KEY_D) || isPressed(window, GLFW_KEY_RIGHT));
                 input.setLaunchButton(isPressed(window, GLFW_KEY_SPACE));
                 input.setNudgeLeft(isPressed(window, GLFW_KEY_Z));
                 input.setNudgeRight(isPressed(window, GLFW_KEY_X));
 
-                boolean restartPressed = isPressed(window, GLFW_KEY_R);
-                if (restartPressed && !restartWasPressed && simulation.gameOver()) {
-                    simulation.restart();
-                }
-                restartWasPressed = restartPressed;
-
                 simulation.update(deltaSeconds, input);
                 glfwSetWindowTitle(window, "Online Pinball | Score: " + simulation.score()
                         + " | Balls: " + simulation.ballsRemaining()
-                        + (simulation.gameOver() ? " | GAME OVER - press R to restart" : ""));
+                    + (simulation.gameOver() ? " | GAME OVER - press R to reset" : ""));
 
                 glClear(GL_COLOR_BUFFER_BIT);
                 applyViewport(window);
@@ -284,6 +279,14 @@ public final class Main {
                 color(0.30f, 0.88f, 0.80f, 1.0f);
             }
             capsule(rail.a(), rail.b(), rail.radius());
+        }
+        if (simulation.launcherGateClosed()) {
+            color(0.02f, 0.10f, 0.12f, 1.0f);
+            capsule(new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.LANE_DIVIDER_TOP),
+                new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.WALL_TOP), 6.0f);
+            color(0.30f, 0.88f, 0.80f, 1.0f);
+            capsule(new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.LANE_DIVIDER_TOP),
+                new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.WALL_TOP), 4.0f);
         }
     }
 

@@ -77,7 +77,7 @@ public final class Flipper {
         Vec2 relativeVelocity = ball.velocity().subtract(surfaceVelocity);
         float normalSpeed = relativeVelocity.dot(normal);
         if (normalSpeed < 0.0f) {
-            Vec2 reflected = relativeVelocity.subtract(normal.multiply(1.8f * normalSpeed));
+            Vec2 reflected = relativeVelocity.subtract(normal.multiply(1.45f * normalSpeed));
             ball.setVelocity(reflected.add(surfaceVelocity));
         }
     }

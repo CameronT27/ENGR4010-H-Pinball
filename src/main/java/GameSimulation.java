@@ -17,7 +17,7 @@ public final class GameSimulation {
     public static final float PLUNGER_TRAVEL = 30.0f;
 
     private static final float LANE_FLOOR_Y = 28.0f;
-    private static final float LANE_DIVIDER_TOP = 900.0f;
+    public static final float LANE_DIVIDER_TOP = 900.0f;
     private static final float RAIL_RADIUS = 4.0f;
     private static final float FLIPPER_PIVOT_OFFSET = 125.0f;
     private static final float FLIPPER_PIVOT_Y = 115.0f;
@@ -26,8 +26,8 @@ public final class GameSimulation {
     private static final float LAUNCH_MIN_SPEED = 1250.0f;
     private static final float LAUNCH_MAX_SPEED = 1700.0f;
     private static final float LAUNCH_CHARGE_TIME = 1.5f;
-    private static final float GRAVITY = -520.0f;
-    private static final float RESTITUTION = 0.82f;
+    private static final float GRAVITY = -820.0f;
+    private static final float RESTITUTION = 0.68f;
     private static final float MAX_BALL_SPEED = 2000.0f;
     private static final float MAX_STEP = 1.0f / 240.0f;
     private static final float NUDGE_COOLDOWN = 0.35f;
@@ -48,8 +48,11 @@ public final class GameSimulation {
     };
     private final float[] bumperGlow = new float[bumpers.length];
     private final List<Rail> rails = buildRails();
+        private final Rail launcherGate = new Rail(new Vec2(LANE_DIVIDER_X, LANE_DIVIDER_TOP),
+            new Vec2(LANE_DIVIDER_X, WALL_TOP), RAIL_RADIUS);
 
     private boolean ballInLauncher = true;
+    private boolean launcherGateClosed;
     private boolean launchWasPressed;
     private boolean launchLocked;
     private boolean nudgeLeftWasPressed;
@@ -91,7 +94,7 @@ public final class GameSimulation {
                 points[index] = new Vec2(x, triangle[index][1]);
             }
             for (int index = 0; index < 3; index++) {
-                list.add(new Rail(points[index], points[(index + 1) % 3], RAIL_RADIUS, 1.1f));
+                list.add(new Rail(points[index], points[(index + 1) % 3], RAIL_RADIUS, 1.05f));
             }
         }
         return Collections.unmodifiableList(list);
@@ -130,6 +133,10 @@ public final class GameSimulation {
             returnToLauncher();
             return;
         }
+        if (!launcherGateClosed && ball.position().x() < LANE_DIVIDER_X
+                && ball.position().y() > LANE_DIVIDER_TOP) {
+            launcherGateClosed = true;
+        }
 
         // A ball cradled on a held flipper is the player's choice, so only count truly stuck balls.
         boolean flipperHeld = input.leftFlipper() || input.rightFlipper();
@@ -145,6 +152,9 @@ public final class GameSimulation {
 
         collideWithWalls();
         collideWithRails();
+        if (launcherGateClosed) {
+            launcherGate.collide(ball, RESTITUTION);
+        }
         collideWithBumpers();
         leftFlipper.collide(ball);
         rightFlipper.collide(ball);
@@ -159,18 +169,17 @@ public final class GameSimulation {
     }
 
     public void reset() {
-        ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM));
+        ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_REST_Y));
         ball.setVelocity(new Vec2(0.0f, 0.0f));
         leftFlipper.reset();
         rightFlipper.reset();
         ballInLauncher = true;
+        launcherGateClosed = false;
         launchWasPressed = false;
+        launchLocked = false;
         nudgeLeftWasPressed = false;
         nudgeRightWasPressed = false;
-        launcherPathActive = false;
         launcherPower = 0.0f;
-        launcherPathTime = 0.0f;
-        launcherPathDuration = 0.0f;
         nudgeCooldown = 0.0f;
         stationaryTime = 0.0f;
         score = 0;
@@ -248,18 +257,12 @@ public final class GameSimulation {
 
     private void returnToLauncher() {
         ballInLauncher = true;
+        launcherGateClosed = false;
         launcherPower = 0.0f;
         stationaryTime = 0.0f;
         launchLocked = launchWasPressed;
         ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_REST_Y));
         ball.setVelocity(new Vec2(0.0f, 0.0f));
-    }
-
-    public void restart() {
-        score = 0;
-        ballsRemaining = STARTING_BALLS;
-        gameOver = false;
-        returnToLauncher();
     }
 
     private void collideWithWalls() {
@@ -304,7 +307,7 @@ public final class GameSimulation {
             ball.setPosition(bumper.add(normal.multiply(minimumDistance)));
             float incomingSpeed = ball.velocity().dot(normal);
             if (incomingSpeed < 0.0f) {
-                ball.setVelocity(ball.velocity().subtract(normal.multiply(2.0f * incomingSpeed)).multiply(1.12f));
+                ball.setVelocity(ball.velocity().subtract(normal.multiply(2.0f * incomingSpeed)).multiply(1.04f));
                 score += 10;
                 bumperGlow[index] = 1.0f;
             }
@@ -341,6 +344,10 @@ public final class GameSimulation {
 
     public float launcherPower() {
         return launcherPower;
+    }
+
+    public boolean launcherGateClosed() {
+        return launcherGateClosed;
     }
 
     public int score() {
