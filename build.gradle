@@ -73,6 +73,12 @@ application {
     mainClass = 'Main'
 }
 
+tasks.named('run', JavaExec).configure {
+    if (System.getProperty('os.name').toLowerCase().contains('mac')) {
+        jvmArgs '-XstartOnFirstThread'
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
