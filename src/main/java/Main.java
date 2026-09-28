@@ -1,18 +1,25 @@
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_X;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
+import static org.lwjgl.glfw.GLFW.GLFW_SAMPLES;
 import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
+import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
 import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
 import static org.lwjgl.glfw.GLFW.glfwDefaultWindowHints;
 import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
+import static org.lwjgl.glfw.GLFW.glfwGetFramebufferSize;
 import static org.lwjgl.glfw.GLFW.glfwGetKey;
 import static org.lwjgl.glfw.GLFW.glfwGetPrimaryMonitor;
 import static org.lwjgl.glfw.GLFW.glfwGetTime;
@@ -20,6 +27,7 @@ import static org.lwjgl.glfw.GLFW.glfwGetVideoMode;
 import static org.lwjgl.glfw.GLFW.glfwInit;
 import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
 import static org.lwjgl.glfw.GLFW.glfwPollEvents;
+import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowTitle;
 import static org.lwjgl.glfw.GLFW.glfwShowWindow;
@@ -29,30 +37,40 @@ import static org.lwjgl.glfw.GLFW.glfwTerminate;
 import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import org.lwjgl.glfw.GLFWErrorCallback;
+import static org.lwjgl.opengl.GL11.GL_BLEND;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
-import static org.lwjgl.opengl.GL11.GL_LINES;
-import static org.lwjgl.opengl.GL11.GL_LINE_LOOP;
 import static org.lwjgl.opengl.GL11.GL_MODELVIEW;
-import static org.lwjgl.opengl.GL11.GL_POLYGON;
+import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_PROJECTION;
 import static org.lwjgl.opengl.GL11.GL_QUADS;
+import static org.lwjgl.opengl.GL11.GL_QUAD_STRIP;
+import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
 import static org.lwjgl.opengl.GL11.glBegin;
+import static org.lwjgl.opengl.GL11.glBlendFunc;
 import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
-import static org.lwjgl.opengl.GL11.glColor3f;
+import static org.lwjgl.opengl.GL11.glColor4f;
+import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glEnd;
-import static org.lwjgl.opengl.GL11.glLineWidth;
 import static org.lwjgl.opengl.GL11.glLoadIdentity;
 import static org.lwjgl.opengl.GL11.glMatrixMode;
 import static org.lwjgl.opengl.GL11.glOrtho;
 import static org.lwjgl.opengl.GL11.glVertex2f;
+import static org.lwjgl.opengl.GL11.glViewport;
+import static org.lwjgl.opengl.GL13.GL_MULTISAMPLE;
 import static org.lwjgl.system.MemoryUtil.NULL;
 
 public final class Main {
     private static final int WINDOW_WIDTH = 720;
     private static final int WINDOW_HEIGHT = 1200;
+
+    // Seven-segment bit masks (a, b, c, d, e, f, g) for the digits 0-9.
+    private static final int[] DIGIT_SEGMENTS = {
+            0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110,
+            0b1101101, 0b1111101, 0b0000111, 0b1111111, 0b1101111
+    };
 
     private Main() {
     }
@@ -70,16 +88,21 @@ public final class Main {
             glfwSwapInterval(1);
             glfwShowWindow(window);
             org.lwjgl.opengl.GL.createCapabilities();
-            glClearColor(0.04f, 0.05f, 0.08f, 1.0f);
+            glClearColor(0.02f, 0.02f, 0.035f, 1.0f);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_MULTISAMPLE);
+
             GameSimulation simulation = new GameSimulation();
             InputState input = new InputState();
             double previousTime = glfwGetTime();
+            boolean restartWasPressed = false;
 
             while (!glfwWindowShouldClose(window)) {
                 double currentTime = glfwGetTime();
                 float deltaSeconds = (float) (currentTime - previousTime);
                 previousTime = currentTime;
-                if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+                if (isPressed(window, GLFW_KEY_ESCAPE)) {
                     glfwSetWindowShouldClose(window, true);
                 }
                 input.setLeftFlipper(isPressed(window, GLFW_KEY_A) || isPressed(window, GLFW_KEY_LEFT));
@@ -87,11 +110,20 @@ public final class Main {
                 input.setLaunchButton(isPressed(window, GLFW_KEY_SPACE));
                 input.setNudgeLeft(isPressed(window, GLFW_KEY_Z));
                 input.setNudgeRight(isPressed(window, GLFW_KEY_X));
+
+                boolean restartPressed = isPressed(window, GLFW_KEY_R);
+                if (restartPressed && !restartWasPressed && simulation.gameOver()) {
+                    simulation.restart();
+                }
+                restartWasPressed = restartPressed;
+
                 simulation.update(deltaSeconds, input);
                 glfwSetWindowTitle(window, "Online Pinball | Score: " + simulation.score()
-                    + " | Balls: " + simulation.ballsRemaining());
+                        + " | Balls: " + simulation.ballsRemaining()
+                        + (simulation.gameOver() ? " | GAME OVER - press R to restart" : ""));
 
                 glClear(GL_COLOR_BUFFER_BIT);
+                applyViewport(window);
                 drawTable(simulation);
                 glfwSwapBuffers(window);
                 glfwPollEvents();
@@ -106,20 +138,24 @@ public final class Main {
     private static long createWindow() {
         glfwDefaultWindowHints();
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-        glfwWindowHint(org.lwjgl.glfw.GLFW.GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_SAMPLES, 4);
 
-        long window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Online Pinball", NULL, NULL);
+        // Shrink the window if the table would be taller than the screen.
+        var videoMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+        float scale = 1.0f;
+        if (videoMode != null) {
+            scale = Math.min(1.0f, videoMode.height() * 0.9f / WINDOW_HEIGHT);
+        }
+        int width = Math.round(WINDOW_WIDTH * scale);
+        int height = Math.round(WINDOW_HEIGHT * scale);
+
+        long window = glfwCreateWindow(width, height, "Online Pinball", NULL, NULL);
         if (window == NULL) {
             throw new IllegalStateException("Unable to create GLFW window");
         }
-
-        var videoMode = glfwGetVideoMode(glfwGetPrimaryMonitor());
         if (videoMode != null) {
-            org.lwjgl.glfw.GLFW.glfwSetWindowPos(
-                    window,
-                    (videoMode.width() - WINDOW_WIDTH) / 2,
-                    (videoMode.height() - WINDOW_HEIGHT) / 2
-            );
+            glfwSetWindowPos(window, (videoMode.width() - width) / 2, (videoMode.height() - height) / 2);
         }
         return window;
     }
@@ -128,6 +164,21 @@ public final class Main {
         return glfwGetKey(window, key) == GLFW_PRESS;
     }
 
+    /** Keeps the table's aspect ratio when the window is resized (letterboxed). */
+    private static void applyViewport(long window) {
+        int[] framebufferWidth = new int[1];
+        int[] framebufferHeight = new int[1];
+        glfwGetFramebufferSize(window, framebufferWidth, framebufferHeight);
+        float scale = Math.min(framebufferWidth[0] / (float) WINDOW_WIDTH,
+                framebufferHeight[0] / (float) WINDOW_HEIGHT);
+        int viewWidth = Math.round(WINDOW_WIDTH * scale);
+        int viewHeight = Math.round(WINDOW_HEIGHT * scale);
+        glViewport((framebufferWidth[0] - viewWidth) / 2, (framebufferHeight[0] - viewHeight) / 2,
+                viewWidth, viewHeight);
+    }
+
+    // ------------------------------------------------------------------ table
+
     private static void drawTable(GameSimulation simulation) {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
@@ -135,173 +186,324 @@ public final class Main {
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
 
-        glColor3f(0.02f, 0.025f, 0.035f);
-        glBegin(GL_QUADS);
-        drawWall(0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
-        glEnd();
+        float left = GameSimulation.WALL_LEFT;
+        float right = GameSimulation.WALL_RIGHT;
+        float top = GameSimulation.WALL_TOP;
+        float divider = GameSimulation.LANE_DIVIDER_X;
+        float centerX = GameSimulation.PLAYFIELD_CENTER_X;
 
-        glColor3f(0.25f, 0.09f, 0.035f);
-        drawPolygon(new Vec2(18.0f, 18.0f), new Vec2(702.0f, 18.0f),
-            new Vec2(702.0f, 1182.0f), new Vec2(18.0f, 1182.0f));
-        glColor3f(0.04f, 0.24f, 0.27f);
-        drawPolygon(new Vec2(48.0f, 34.0f), new Vec2(580.0f, 34.0f),
-            new Vec2(580.0f, 1148.0f), new Vec2(48.0f, 1148.0f));
+        // Cabinet (wood frame) with a lighter inner lip.
+        verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0.10f, 0.04f, 0.02f, 0.32f, 0.12f, 0.05f);
+        color(0.62f, 0.34f, 0.14f, 1.0f);
+        rect(left - 5.0f, 0, left, top + 5.0f);
+        rect(right, 0, right + 5.0f, top + 5.0f);
+        rect(left - 5.0f, top, right + 5.0f, top + 5.0f);
 
-        drawPlayfieldDetails();
+        // Playfield and launcher lane.
+        verticalGradient(left, 0, right, top, 0.02f, 0.09f, 0.13f, 0.05f, 0.27f, 0.33f);
+        verticalGradient(divider, 0, right, top, 0.01f, 0.05f, 0.08f, 0.03f, 0.13f, 0.17f);
 
-        glColor3f(0.8f, 0.5f, 0.18f);
-        glLineWidth(10.0f);
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(48.0f, 34.0f);
-        glVertex2f(580.0f, 34.0f);
-        glVertex2f(580.0f, 1148.0f);
-        glVertex2f(48.0f, 1148.0f);
-        glEnd();
+        drawPlayfieldArt(centerX);
+        drawLaneArt();
+        drawRails(simulation);
+        drawBumpers(simulation);
+        drawFlippers(simulation);
+        drawBall(simulation);
+        drawPlunger(simulation);
+        drawHud(simulation, centerX);
+        drawPowerMeter(simulation);
 
-        glColor3f(0.25f, 0.9f, 0.8f);
-        glLineWidth(4.0f);
-        glBegin(GL_LINES);
-        glVertex2f(60.0f, 48.0f);
-        glVertex2f(60.0f, 1140.0f);
-        glVertex2f(580.0f, 48.0f);
-        glVertex2f(580.0f, 1140.0f);
-        glEnd();
-
-        glColor3f(0.06f, 0.32f, 0.3f);
-        glBegin(GL_QUADS);
-        drawWall(28.0f, 20.0f, 20.0f, 1160.0f);
-        drawWall(672.0f, 20.0f, 20.0f, 1160.0f);
-        glEnd();
-
-        glColor3f(0.04f, 0.14f, 0.17f);
-        glBegin(GL_QUADS);
-        drawWall(590.0f, 25.0f, 100.0f, 1120.0f);
-        glEnd();
-        glColor3f(0.25f, 0.9f, 0.8f);
-        glLineWidth(5.0f);
-        glBegin(GL_LINES);
-        glVertex2f(590.0f, 30.0f);
-        glVertex2f(590.0f, 1140.0f);
-        glEnd();
-
-        glColor3f(0.95f, 0.35f, 0.08f);
-        glLineWidth(16.0f);
-        glBegin(GL_LINES);
-        drawSegment(simulation.leftFlipper());
-        drawSegment(simulation.rightFlipper());
-        glEnd();
-
-        glColor3f(1.0f, 0.55f, 0.15f);
-        drawCircle(simulation.leftFlipper().pivot(), 18.0f, 20);
-        drawCircle(simulation.rightFlipper().pivot(), 18.0f, 20);
-
-        glColor3f(0.95f, 0.75f, 0.2f);
-        for (Vec2 bumper : simulation.bumpers()) {
-            drawCircle(bumper, 28.0f, 24);
-            glColor3f(0.98f, 0.92f, 0.4f);
-            drawRing(bumper, 35.0f, 24);
-            glColor3f(0.95f, 0.75f, 0.2f);
+        if (simulation.gameOver()) {
+            color(0.0f, 0.0f, 0.0f, 0.62f);
+            rect(left, 0, right, top);
+            drawNumber(simulation.score(), 6, centerX, 600.0f, 58.0f, 100.0f, 11.0f, 1.0f, 0.78f, 0.25f, 1.0f, false);
         }
-
-        glColor3f(0.95f, 0.95f, 0.95f);
-        drawCircle(simulation.ball().position(), simulation.ball().radius(), 32);
-
-        drawLauncherPower(simulation);
     }
 
-    private static void drawPlayfieldDetails() {
-        glColor3f(0.06f, 0.45f, 0.44f);
-        glLineWidth(3.0f);
-        glBegin(GL_LINES);
-        glVertex2f(125.0f, 1030.0f);
-        glVertex2f(585.0f, 1030.0f);
-        glVertex2f(150.0f, 970.0f);
-        glVertex2f(560.0f, 970.0f);
-        glVertex2f(155.0f, 560.0f);
-        glVertex2f(280.0f, 560.0f);
-        glVertex2f(440.0f, 560.0f);
-        glVertex2f(565.0f, 560.0f);
-        glEnd();
-
-        glColor3f(0.95f, 0.15f, 0.3f);
-        drawTriangle(165.0f, 310.0f, 285.0f, 355.0f, 255.0f, 250.0f);
-        drawTriangle(555.0f, 310.0f, 435.0f, 355.0f, 465.0f, 250.0f);
-
-        glColor3f(0.95f, 0.65f, 0.15f);
-        drawRing(new Vec2(360.0f, 1050.0f), 38.0f, 32);
-        drawCircle(new Vec2(360.0f, 1050.0f), 7.0f, 16);
-
-        glColor3f(0.9f, 0.85f, 0.55f);
-        drawCircle(new Vec2(150.0f, 470.0f), 9.0f, 16);
-        drawCircle(new Vec2(570.0f, 470.0f), 9.0f, 16);
-        drawCircle(new Vec2(180.0f, 900.0f), 9.0f, 16);
-        drawCircle(new Vec2(540.0f, 900.0f), 9.0f, 16);
-
-        glColor3f(0.95f, 0.7f, 0.2f);
-        drawCircle(new Vec2(180.0f, 600.0f), 14.0f, 16);
-        drawCircle(new Vec2(540.0f, 600.0f), 14.0f, 16);
-        drawCircle(new Vec2(360.0f, 940.0f), 14.0f, 16);
-    }
-
-    private static void drawPolygon(Vec2... points) {
-        glBegin(GL_POLYGON);
-        for (Vec2 point : points) {
-            glVertex2f(point.x(), point.y());
+    private static void drawPlayfieldArt(float centerX) {
+        // Big center medallion.
+        drawRing(centerX, 520.0f, 110.0f, 5.0f, 0.10f, 0.55f, 0.55f, 0.35f);
+        drawRing(centerX, 520.0f, 70.0f, 3.0f, 0.10f, 0.55f, 0.55f, 0.30f);
+        for (int spoke = 0; spoke < 8; spoke++) {
+            double angle = Math.PI * 2.0 * spoke / 8.0 + Math.PI / 8.0;
+            Vec2 a = new Vec2(centerX + (float) Math.cos(angle) * 70.0f, 520.0f + (float) Math.sin(angle) * 70.0f);
+            Vec2 b = new Vec2(centerX + (float) Math.cos(angle) * 110.0f, 520.0f + (float) Math.sin(angle) * 110.0f);
+            color(0.10f, 0.55f, 0.55f, 0.22f);
+            capsule(a, b, 1.5f);
         }
+        color(0.95f, 0.70f, 0.20f, 0.55f);
+        circle(centerX, 520.0f, 12.0f);
+
+        // Top rollover lights and side insert lights (decoration only).
+        float[] rolloverX = {centerX - 90.0f, centerX, centerX + 90.0f};
+        for (float x : rolloverX) {
+            insertLight(x, 1000.0f, 11.0f, 0.95f, 0.75f, 0.2f);
+        }
+        insertLight(92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
+        insertLight(2.0f * centerX - 92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
+        insertLight(centerX - 140.0f, 600.0f, 9.0f, 0.95f, 0.35f, 0.5f);
+        insertLight(centerX + 140.0f, 600.0f, 9.0f, 0.95f, 0.35f, 0.5f);
+    }
+
+    private static void drawLaneArt() {
+        // Upward chevrons showing the launch direction.
+        for (int index = 0; index < 4; index++) {
+            float y = 240.0f + index * 90.0f;
+            float x = GameSimulation.LAUNCHER_X;
+            color(0.20f, 0.60f, 0.62f, 0.45f);
+            capsule(new Vec2(x - 14.0f, y), new Vec2(x, y + 12.0f), 2.5f);
+            capsule(new Vec2(x + 14.0f, y), new Vec2(x, y + 12.0f), 2.5f);
+        }
+    }
+
+    private static void drawRails(GameSimulation simulation) {
+        List<Rail> kickers = new ArrayList<>();
+        for (Rail rail : simulation.rails()) {
+            if (rail.isKicker()) {
+                kickers.add(rail);
+            }
+        }
+        // Slingshot bodies: rails come in triples that form one triangle.
+        for (int index = 0; index + 2 < kickers.size(); index += 3) {
+            color(0.75f, 0.10f, 0.25f, 1.0f);
+            triangle(kickers.get(index).a(), kickers.get(index + 1).a(), kickers.get(index + 2).a());
+        }
+        // Dark outline first, then the bright rail on top.
+        for (Rail rail : simulation.rails()) {
+            color(0.02f, 0.10f, 0.12f, 1.0f);
+            capsule(rail.a(), rail.b(), rail.radius() + 2.0f);
+        }
+        for (Rail rail : simulation.rails()) {
+            if (rail.isKicker()) {
+                color(1.0f, 0.33f, 0.45f, 1.0f);
+            } else {
+                color(0.30f, 0.88f, 0.80f, 1.0f);
+            }
+            capsule(rail.a(), rail.b(), rail.radius());
+        }
+    }
+
+    private static void drawBumpers(GameSimulation simulation) {
+        Vec2[] bumpers = simulation.bumpers();
+        for (int index = 0; index < bumpers.length; index++) {
+            Vec2 bumper = bumpers[index];
+            float glow = simulation.bumperGlow(index);
+            color(1.0f, 0.85f, 0.30f, 0.10f + 0.40f * glow);
+            circle(bumper.x(), bumper.y(), 44.0f);
+            color(0.25f, 0.12f, 0.02f, 1.0f);
+            circle(bumper.x(), bumper.y(), 31.0f);
+            color(0.90f + 0.10f * glow, 0.60f + 0.32f * glow, 0.14f + 0.45f * glow, 1.0f);
+            circle(bumper.x(), bumper.y(), 28.0f);
+            color(0.98f, 0.86f + 0.10f * glow, 0.40f + 0.40f * glow, 1.0f);
+            circle(bumper.x(), bumper.y(), 19.0f);
+            color(0.38f + 0.50f * glow, 0.16f + 0.40f * glow, 0.04f + 0.10f * glow, 1.0f);
+            circle(bumper.x(), bumper.y(), 9.0f);
+        }
+    }
+
+    private static void drawFlippers(GameSimulation simulation) {
+        Flipper[] flippers = {simulation.leftFlipper(), simulation.rightFlipper()};
+        for (Flipper flipper : flippers) {
+            color(0.30f, 0.09f, 0.02f, 1.0f);
+            capsule(flipper.pivot(), flipper.endpoint(), 14.0f);
+            color(0.95f, 0.35f, 0.08f, 1.0f);
+            capsule(flipper.pivot(), flipper.endpoint(), 12.0f);
+            color(1.0f, 0.62f, 0.28f, 1.0f);
+            capsule(flipper.pivot(), flipper.endpoint(), 5.0f);
+            color(0.22f, 0.08f, 0.03f, 1.0f);
+            circle(flipper.pivot().x(), flipper.pivot().y(), 4.5f);
+        }
+    }
+
+    private static void drawBall(GameSimulation simulation) {
+        Vec2 position = simulation.ball().position();
+        float radius = simulation.ball().radius();
+        color(0.0f, 0.0f, 0.0f, 0.35f);
+        circle(position.x() + 4.0f, position.y() - 4.0f, radius);
+        color(0.55f, 0.58f, 0.66f, 1.0f);
+        circle(position.x(), position.y(), radius);
+        color(0.82f, 0.85f, 0.91f, 1.0f);
+        circle(position.x() - radius * 0.15f, position.y() + radius * 0.15f, radius * 0.72f);
+        color(1.0f, 1.0f, 1.0f, 0.95f);
+        circle(position.x() - radius * 0.35f, position.y() + radius * 0.35f, radius * 0.25f);
+    }
+
+    private static void drawPlunger(GameSimulation simulation) {
+        float x = GameSimulation.LAUNCHER_X;
+        float ballY = simulation.ballInLauncher()
+                ? simulation.ball().position().y() : GameSimulation.LAUNCHER_REST_Y;
+        float headTop = ballY - simulation.ball().radius();
+        float headBottom = headTop - 8.0f;
+        float springBottom = 33.0f;
+
+        color(0.72f, 0.74f, 0.80f, 1.0f);
+        int coils = 8;
+        for (int index = 0; index < coils; index++) {
+            float y0 = springBottom + (headBottom - springBottom) * index / coils;
+            float y1 = springBottom + (headBottom - springBottom) * (index + 1) / coils;
+            float x0 = x + (index % 2 == 0 ? -10.0f : 10.0f);
+            float x1 = x + (index % 2 == 0 ? 10.0f : -10.0f);
+            capsule(new Vec2(x0, y0), new Vec2(x1, y1), 1.8f);
+        }
+        color(0.85f, 0.30f, 0.12f, 1.0f);
+        rect(x - 14.0f, headBottom, x + 14.0f, headTop);
+    }
+
+    // ------------------------------------------------------------------ HUD
+
+    private static void drawHud(GameSimulation simulation, float centerX) {
+        drawNumber(simulation.score(), 6, centerX, 1090.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
+
+        // Balls remaining, shown below the flippers.
+        for (int index = 0; index < 3; index++) {
+            float x = centerX + (index - 1) * 32.0f;
+            if (index < simulation.ballsRemaining()) {
+                color(0.85f, 0.88f, 0.95f, 0.85f);
+            } else {
+                color(0.10f, 0.20f, 0.24f, 0.9f);
+            }
+            circle(x, 26.0f, 7.0f);
+        }
+    }
+
+    private static void drawPowerMeter(GameSimulation simulation) {
+        float x0 = GameSimulation.WALL_RIGHT + 8.0f;
+        float x1 = x0 + 12.0f;
+        float y0 = 120.0f;
+        float y1 = 520.0f;
+        color(0.05f, 0.05f, 0.07f, 1.0f);
+        rect(x0 - 2.0f, y0 - 2.0f, x1 + 2.0f, y1 + 2.0f);
+        color(0.14f, 0.15f, 0.18f, 1.0f);
+        rect(x0, y0, x1, y1);
+        float power = simulation.launcherPower();
+        if (power > 0.0f) {
+            float fillTop = y0 + (y1 - y0) * power;
+            verticalGradient(x0, y0, x1, fillTop, 0.20f, 0.85f, 0.35f, 0.95f * power + 0.05f, 0.85f - 0.65f * power, 0.15f);
+        }
+    }
+
+    private static void drawNumber(int value, int digits, float centerX, float centerY, float digitWidth,
+                                   float digitHeight, float thickness, float r, float g, float b, float alpha,
+                                   boolean showGhost) {
+        float gap = digitWidth * 0.35f;
+        float totalWidth = digits * digitWidth + (digits - 1) * gap;
+        float startX = centerX - totalWidth / 2.0f;
+        int clamped = Math.max(0, Math.min(value, (int) Math.pow(10, digits) - 1));
+        boolean leading = true;
+        for (int index = 0; index < digits; index++) {
+            int divisor = (int) Math.pow(10, digits - 1 - index);
+            int digit = (clamped / divisor) % 10;
+            if (digit != 0 || index == digits - 1) {
+                leading = false;
+            }
+            float x = startX + index * (digitWidth + gap);
+            float y = centerY - digitHeight / 2.0f;
+            if (showGhost) {
+                color(r, g, b, 0.07f);
+                drawDigit(x, y, digitWidth, digitHeight, thickness, 0b1111111);
+            }
+            color(r, g, b, leading && showGhost ? alpha * 0.35f : alpha);
+            drawDigit(x, y, digitWidth, digitHeight, thickness, DIGIT_SEGMENTS[digit]);
+        }
+    }
+
+    private static void drawDigit(float x, float y, float w, float h, float t, int mask) {
+        float half = h / 2.0f;
+        if ((mask & 0b0000001) != 0) rect(x + t, y + h - t, x + w - t, y + h);          // a (top)
+        if ((mask & 0b0000010) != 0) rect(x + w - t, y + half, x + w, y + h - t);      // b (top right)
+        if ((mask & 0b0000100) != 0) rect(x + w - t, y + t, x + w, y + half);          // c (bottom right)
+        if ((mask & 0b0001000) != 0) rect(x + t, y, x + w - t, y + t);                 // d (bottom)
+        if ((mask & 0b0010000) != 0) rect(x, y + t, x + t, y + half);                  // e (bottom left)
+        if ((mask & 0b0100000) != 0) rect(x, y + half, x + t, y + h - t);              // f (top left)
+        if ((mask & 0b1000000) != 0) rect(x + t, y + half - t / 2.0f, x + w - t, y + half + t / 2.0f); // g (middle)
+    }
+
+    // ------------------------------------------------------------------ primitives
+
+    private static void color(float r, float g, float b, float a) {
+        glColor4f(r, g, b, a);
+    }
+
+    private static void rect(float x0, float y0, float x1, float y1) {
+        glBegin(GL_QUADS);
+        glVertex2f(x0, y0);
+        glVertex2f(x1, y0);
+        glVertex2f(x1, y1);
+        glVertex2f(x0, y1);
         glEnd();
     }
 
-    private static void drawWall(float x, float y, float width, float height) {
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
+    private static void verticalGradient(float x0, float y0, float x1, float y1,
+                                         float br, float bg, float bb, float tr, float tg, float tb) {
+        glBegin(GL_QUADS);
+        glColor4f(br, bg, bb, 1.0f);
+        glVertex2f(x0, y0);
+        glVertex2f(x1, y0);
+        glColor4f(tr, tg, tb, 1.0f);
+        glVertex2f(x1, y1);
+        glVertex2f(x0, y1);
+        glEnd();
     }
 
-    private static void drawCircle(Vec2 center, float radius, int segments) {
+    private static void circle(float cx, float cy, float radius) {
+        int segments = Math.max(24, (int) (radius * 2.0f));
         glBegin(GL_TRIANGLE_FAN);
-        glVertex2f(center.x(), center.y());
+        glVertex2f(cx, cy);
         for (int index = 0; index <= segments; index++) {
             double angle = Math.PI * 2.0 * index / segments;
-            glVertex2f(center.x() + (float) Math.cos(angle) * radius,
-                    center.y() + (float) Math.sin(angle) * radius);
+            glVertex2f(cx + (float) Math.cos(angle) * radius, cy + (float) Math.sin(angle) * radius);
         }
         glEnd();
     }
 
-    private static void drawRing(Vec2 center, float radius, int segments) {
-        glBegin(GL_LINE_LOOP);
-        for (int index = 0; index < segments; index++) {
+    private static void drawRing(float cx, float cy, float radius, float thickness,
+                                 float r, float g, float b, float a) {
+        int segments = Math.max(32, (int) (radius * 2.0f));
+        float inner = radius - thickness / 2.0f;
+        float outer = radius + thickness / 2.0f;
+        color(r, g, b, a);
+        glBegin(GL_QUAD_STRIP);
+        for (int index = 0; index <= segments; index++) {
             double angle = Math.PI * 2.0 * index / segments;
-            glVertex2f(center.x() + (float) Math.cos(angle) * radius,
-                    center.y() + (float) Math.sin(angle) * radius);
+            float cos = (float) Math.cos(angle);
+            float sin = (float) Math.sin(angle);
+            glVertex2f(cx + cos * inner, cy + sin * inner);
+            glVertex2f(cx + cos * outer, cy + sin * outer);
         }
         glEnd();
     }
 
-    private static void drawTriangle(float x1, float y1, float x2, float y2, float x3, float y3) {
+    private static void capsule(Vec2 a, Vec2 b, float radius) {
+        Vec2 axis = b.subtract(a);
+        float length = axis.length();
+        if (length > 0.0001f) {
+            float nx = -axis.y() / length * radius;
+            float ny = axis.x() / length * radius;
+            glBegin(GL_QUADS);
+            glVertex2f(a.x() + nx, a.y() + ny);
+            glVertex2f(b.x() + nx, b.y() + ny);
+            glVertex2f(b.x() - nx, b.y() - ny);
+            glVertex2f(a.x() - nx, a.y() - ny);
+            glEnd();
+        }
+        circle(a.x(), a.y(), radius);
+        circle(b.x(), b.y(), radius);
+    }
+
+    private static void triangle(Vec2 a, Vec2 b, Vec2 c) {
         glBegin(GL_TRIANGLES);
-        glVertex2f(x1, y1);
-        glVertex2f(x2, y2);
-        glVertex2f(x3, y3);
+        glVertex2f(a.x(), a.y());
+        glVertex2f(b.x(), b.y());
+        glVertex2f(c.x(), c.y());
         glEnd();
     }
 
-    private static void drawLauncherPower(GameSimulation simulation) {
-        glColor3f(0.2f, 0.2f, 0.24f);
-        glBegin(GL_QUADS);
-        drawWall(610.0f, 240.0f, 12.0f, 260.0f);
-        glEnd();
-
-        glColor3f(0.95f, 0.35f, 0.12f);
-        glBegin(GL_QUADS);
-        drawWall(610.0f, 240.0f, 12.0f, 260.0f * simulation.launcherPower());
-        glEnd();
+    private static void insertLight(float x, float y, float radius, float r, float g, float b) {
+        color(0.01f, 0.06f, 0.08f, 1.0f);
+        circle(x, y, radius + 3.0f);
+        color(r * 0.45f, g * 0.45f, b * 0.45f, 1.0f);
+        circle(x, y, radius);
+        color(r, g, b, 0.55f);
+        circle(x, y, radius * 0.45f);
     }
-
-    private static void drawSegment(Flipper flipper) {
-        glVertex2f(flipper.pivot().x(), flipper.pivot().y());
-        glVertex2f(flipper.endpoint().x(), flipper.endpoint().y());
-    }
-
 }

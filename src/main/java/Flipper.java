@@ -32,7 +32,7 @@ public final class Flipper {
         Vec2 collisionPosition = ball.position();
         Vec2 closest = closestPoint(collisionPosition, direction);
         float distance = collisionPosition.subtract(closest).length();
-        float minimumDistance = ball.radius() + radius + 2.0f;
+        float minimumDistance = ball.radius() + radius;
 
         if (distance >= minimumDistance) {
             Vec2 travel = ball.position().subtract(ball.previousPosition());
@@ -55,7 +55,17 @@ public final class Flipper {
         }
 
         Vec2 separation = collisionPosition.subtract(closest);
-        Vec2 normal = distance > 0.0001f ? separation.multiply(1.0f / distance) : direction;
+        Vec2 normal;
+        if (distance > 0.0001f) {
+            normal = separation.multiply(1.0f / distance);
+        } else {
+            // Ball center exactly on the flipper: push out perpendicular to the bat (toward the playfield),
+            // not along its length.
+            normal = new Vec2(-direction.y(), direction.x());
+            if (normal.y() < 0.0f) {
+                normal = normal.multiply(-1.0f);
+            }
+        }
         ball.setPosition(closest.add(normal.multiply(minimumDistance)));
         Vec2 contactOffset = closest.subtract(pivot);
         Vec2 surfaceVelocity = new Vec2(-contactOffset.y(), contactOffset.x()).multiply(angularVelocity);

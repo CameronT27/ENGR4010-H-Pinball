@@ -1,65 +1,140 @@
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public final class GameSimulation {
-    private static final float TABLE_WIDTH = 720.0f;
-    private static final float TABLE_HEIGHT = 1200.0f;
-    private static final float WALL_LEFT = 28.0f;
-    private static final float WALL_RIGHT = TABLE_WIDTH - 28.0f;
-    private static final float WALL_BOTTOM = 28.0f;
-    private static final float WALL_TOP = TABLE_HEIGHT - 28.0f;
-    private static final float LAUNCHER_X = 660.0f;
-    private static final float LAUNCHER_BOTTOM = 62.0f;
-    private static final float MAX_LAUNCH_POWER = 2100.0f;
+    // ---- Table layout (shared with Main so the drawing always matches the physics) ----
+    public static final float TABLE_WIDTH = 720.0f;
+    public static final float TABLE_HEIGHT = 1200.0f;
+    public static final float WALL_LEFT = 28.0f;
+    public static final float WALL_RIGHT = TABLE_WIDTH - 28.0f;
+    public static final float WALL_TOP = TABLE_HEIGHT - 28.0f;
+    /** The wall between the playfield and the launcher lane. */
+    public static final float LANE_DIVIDER_X = 628.0f;
+    public static final float PLAYFIELD_CENTER_X = (WALL_LEFT + LANE_DIVIDER_X) / 2.0f;
+    public static final float LAUNCHER_X = 660.0f;
+    public static final float LAUNCHER_REST_Y = 80.0f;
+    public static final float PLUNGER_TRAVEL = 30.0f;
+
+    private static final float LANE_FLOOR_Y = 28.0f;
+    private static final float LANE_DIVIDER_TOP = 900.0f;
+    private static final float RAIL_RADIUS = 4.0f;
+    private static final float FLIPPER_PIVOT_OFFSET = 125.0f;
+    private static final float FLIPPER_PIVOT_Y = 115.0f;
+
+    // ---- Tuning ----
+    private static final float LAUNCH_MIN_SPEED = 1250.0f;
+    private static final float LAUNCH_MAX_SPEED = 1700.0f;
     private static final float LAUNCH_CHARGE_TIME = 1.5f;
     private static final float GRAVITY = -520.0f;
     private static final float RESTITUTION = 0.82f;
-    private static final float DRAIN_LEFT = 170.0f;
-    private static final float DRAIN_RIGHT = 550.0f;
+    private static final float MAX_BALL_SPEED = 2000.0f;
+    private static final float MAX_STEP = 1.0f / 240.0f;
     private static final float NUDGE_COOLDOWN = 0.35f;
     private static final float STATIONARY_SPEED = 8.0f;
     private static final float STATIONARY_TIME_LIMIT = 1.25f;
+    private static final float BUMPER_RADIUS = 28.0f;
     private static final int STARTING_BALLS = 3;
 
-        private final Ball ball = new Ball(new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM), 14.0f);
-            private final Flipper leftFlipper = new Flipper(new Vec2(245.0f, 115.0f), 105.0f,
-                (float) Math.toRadians(-20.0), (float) Math.toRadians(25.0), 8.0f, 12.0f);
-            private final Flipper rightFlipper = new Flipper(new Vec2(475.0f, 115.0f), 105.0f,
-                (float) Math.toRadians(200.0), (float) Math.toRadians(155.0), 8.0f, 12.0f);
+    private final Ball ball = new Ball(new Vec2(LAUNCHER_X, LAUNCHER_REST_Y), 14.0f);
+    private final Flipper leftFlipper = new Flipper(new Vec2(PLAYFIELD_CENTER_X - FLIPPER_PIVOT_OFFSET, FLIPPER_PIVOT_Y),
+            100.0f, (float) Math.toRadians(-28.0), (float) Math.toRadians(28.0), 10.0f, 12.0f);
+    private final Flipper rightFlipper = new Flipper(new Vec2(PLAYFIELD_CENTER_X + FLIPPER_PIVOT_OFFSET, FLIPPER_PIVOT_Y),
+            100.0f, (float) Math.toRadians(208.0), (float) Math.toRadians(152.0), 10.0f, 12.0f);
     private final Vec2[] bumpers = {
-            new Vec2(230.0f, 730.0f), new Vec2(360.0f, 825.0f), new Vec2(490.0f, 730.0f)
+            new Vec2(PLAYFIELD_CENTER_X - 130.0f, 730.0f),
+            new Vec2(PLAYFIELD_CENTER_X, 825.0f),
+            new Vec2(PLAYFIELD_CENTER_X + 130.0f, 730.0f)
     };
+    private final float[] bumperGlow = new float[bumpers.length];
+    private final List<Rail> rails = buildRails();
+
     private boolean ballInLauncher = true;
     private boolean launchWasPressed;
+    private boolean launchLocked;
     private boolean nudgeLeftWasPressed;
     private boolean nudgeRightWasPressed;
-    private boolean launcherPathActive;
     private float launcherPower;
-    private float launcherPathTime;
-    private float launcherPathDuration;
     private float nudgeCooldown;
     private float stationaryTime;
     private int score;
     private int ballsRemaining = STARTING_BALLS;
     private boolean gameOver;
 
+    private static float mirrorX(float x) {
+        return 2.0f * PLAYFIELD_CENTER_X - x;
+    }
+
+    private List<Rail> buildRails() {
+        List<Rail> list = new ArrayList<>();
+        Vec2 leftPivot = leftFlipper.pivot();
+        Vec2 rightPivot = rightFlipper.pivot();
+
+        // Top corner chamfers: turn the ball coming up the lane toward the playfield.
+        list.add(new Rail(new Vec2(WALL_LEFT, 1052.0f), new Vec2(WALL_LEFT + 120.0f, WALL_TOP), RAIL_RADIUS));
+        list.add(new Rail(new Vec2(WALL_RIGHT, 1052.0f), new Vec2(WALL_RIGHT - 120.0f, WALL_TOP), RAIL_RADIUS));
+
+        // Inlane guides: funnel every ball onto a flipper so the only exit is the center drain.
+        list.add(new Rail(new Vec2(WALL_LEFT, 300.0f), leftPivot, RAIL_RADIUS + 1.0f));
+        list.add(new Rail(new Vec2(LANE_DIVIDER_X, 300.0f), rightPivot, RAIL_RADIUS + 1.0f));
+
+        // Launcher lane: divider wall and floor.
+        list.add(new Rail(new Vec2(LANE_DIVIDER_X, LANE_FLOOR_Y), new Vec2(LANE_DIVIDER_X, LANE_DIVIDER_TOP), RAIL_RADIUS));
+        list.add(new Rail(new Vec2(LANE_DIVIDER_X, LANE_FLOOR_Y), new Vec2(WALL_RIGHT, LANE_FLOOR_Y), RAIL_RADIUS));
+
+        // Slingshots (triangle islands). Edges are listed in triples so Main can fill each triangle.
+        float[][] triangle = {{131.0f, 310.0f}, {251.0f, 355.0f}, {221.0f, 250.0f}};
+        for (int side = 0; side < 2; side++) {
+            Vec2[] points = new Vec2[3];
+            for (int index = 0; index < 3; index++) {
+                float x = side == 0 ? triangle[index][0] : mirrorX(triangle[index][0]);
+                points[index] = new Vec2(x, triangle[index][1]);
+            }
+            for (int index = 0; index < 3; index++) {
+                list.add(new Rail(points[index], points[(index + 1) % 3], RAIL_RADIUS, 1.1f));
+            }
+        }
+        return Collections.unmodifiableList(list);
+    }
+
     public void update(float deltaSeconds, InputState input) {
-        float delta = Math.min(deltaSeconds, 0.033f);
-        leftFlipper.update(delta, input.leftFlipper());
-        rightFlipper.update(delta, input.rightFlipper());
+        float delta = Math.min(Math.max(deltaSeconds, 0.0f), 0.033f);
         updateNudge(delta, input);
         updateLauncher(delta, input.launchButton());
+        for (int index = 0; index < bumperGlow.length; index++) {
+            bumperGlow[index] = Math.max(0.0f, bumperGlow[index] - delta * 4.0f);
+        }
+
+        // Substep so a fast ball can never skip through a rail, bumper or flipper.
+        int steps = Math.max(1, (int) Math.ceil(delta / MAX_STEP));
+        float step = delta / steps;
+        for (int index = 0; index < steps; index++) {
+            simulateStep(step, input);
+        }
+    }
+
+    private void simulateStep(float step, InputState input) {
+        leftFlipper.update(step, input.leftFlipper());
+        rightFlipper.update(step, input.rightFlipper());
         if (ballInLauncher || gameOver) {
             return;
         }
-        if (launcherPathActive) {
-            updateLauncherPath(delta);
-            return;
-        }
-        ball.integrate(delta, new Vec2(0.0f, GRAVITY));
+
+        ball.integrate(step, new Vec2(0.0f, GRAVITY));
+        limitSpeed();
         if (isDrained() || isOutOfBounds()) {
             drainBall();
             return;
         }
-        if (ball.velocity().length() < STATIONARY_SPEED) {
-            stationaryTime += delta;
+        if (isBackInLauncherLane()) {
+            returnToLauncher();
+            return;
+        }
+
+        // A ball cradled on a held flipper is the player's choice, so only count truly stuck balls.
+        boolean flipperHeld = input.leftFlipper() || input.rightFlipper();
+        if (!flipperHeld && ball.velocity().length() < STATIONARY_SPEED) {
+            stationaryTime += step;
             if (stationaryTime >= STATIONARY_TIME_LIMIT) {
                 drainBall();
                 return;
@@ -67,19 +142,31 @@ public final class GameSimulation {
         } else {
             stationaryTime = 0.0f;
         }
+
         collideWithWalls();
+        collideWithRails();
         collideWithBumpers();
         leftFlipper.collide(ball);
         rightFlipper.collide(ball);
+        limitSpeed();
+    }
+
+    private void limitSpeed() {
+        float speed = ball.velocity().length();
+        if (speed > MAX_BALL_SPEED) {
+            ball.setVelocity(ball.velocity().multiply(MAX_BALL_SPEED / speed));
+        }
     }
 
     private void updateNudge(float deltaSeconds, InputState input) {
         nudgeCooldown = Math.max(0.0f, nudgeCooldown - deltaSeconds);
         boolean leftPressed = input.nudgeLeft();
         boolean rightPressed = input.nudgeRight();
-        boolean newNudge = (leftPressed && !nudgeLeftWasPressed) || (rightPressed && !nudgeRightWasPressed);
-        if (!ballInLauncher && !gameOver && nudgeCooldown == 0.0f && newNudge) {
-            float direction = leftPressed ? -1.0f : 1.0f;
+        boolean leftNew = leftPressed && !nudgeLeftWasPressed;
+        boolean rightNew = rightPressed && !nudgeRightWasPressed;
+        // Direction comes from the key that was just pressed, not whichever key happens to be held.
+        float direction = (rightNew ? 1.0f : 0.0f) - (leftNew ? 1.0f : 0.0f);
+        if (!ballInLauncher && !gameOver && nudgeCooldown == 0.0f && direction != 0.0f) {
             ball.setVelocity(ball.velocity().add(new Vec2(direction * 180.0f, 90.0f)));
             nudgeCooldown = NUDGE_COOLDOWN;
         }
@@ -90,46 +177,29 @@ public final class GameSimulation {
     private void updateLauncher(float deltaSeconds, boolean launchPressed) {
         boolean released = launchWasPressed && !launchPressed;
         launchWasPressed = launchPressed;
-        if (!ballInLauncher) {
+        if (!launchPressed) {
+            launchLocked = false;
+        }
+        if (!ballInLauncher || gameOver) {
             return;
         }
 
-        if (launchPressed) {
+        if (launchPressed && !launchLocked) {
             launcherPower = Math.min(1.0f, launcherPower + deltaSeconds / LAUNCH_CHARGE_TIME);
-            ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM));
+            ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_REST_Y - PLUNGER_TRAVEL * launcherPower));
             ball.setVelocity(new Vec2(0.0f, 0.0f));
-        } else if (released && launcherPower > 0.0f && !gameOver) {
+        } else if (released && launcherPower > 0.0f) {
+            // The plunger fires the ball straight up the lane; the top chamfer turns it into the playfield.
+            float speed = LAUNCH_MIN_SPEED + (LAUNCH_MAX_SPEED - LAUNCH_MIN_SPEED) * launcherPower;
+            ball.setVelocity(new Vec2(0.0f, speed));
             ballInLauncher = false;
-            launcherPathActive = true;
-            launcherPathTime = 0.0f;
-            launcherPathDuration = 1.4f - launcherPower * 0.55f;
             launcherPower = 0.0f;
-        }
-    }
-
-    private void updateLauncherPath(float deltaSeconds) {
-        launcherPathTime = Math.min(launcherPathDuration, launcherPathTime + deltaSeconds);
-        float progress = launcherPathTime / launcherPathDuration;
-        Vec2 start = new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM);
-        Vec2 control = new Vec2(LAUNCHER_X, 760.0f);
-        Vec2 end = new Vec2(520.0f, 1080.0f);
-        float firstWeight = 1.0f - progress;
-        Vec2 position = start.multiply(firstWeight * firstWeight)
-                .add(control.multiply(2.0f * firstWeight * progress))
-                .add(end.multiply(progress * progress));
-        Vec2 tangent = control.subtract(start).multiply(2.0f * firstWeight)
-                .add(end.subtract(control).multiply(2.0f * progress));
-        ball.setPosition(position);
-        ball.setVelocity(tangent.multiply(1.0f / launcherPathDuration));
-        if (launcherPathTime >= launcherPathDuration) {
-            launcherPathActive = false;
+            stationaryTime = 0.0f;
         }
     }
 
     private boolean isDrained() {
-        Vec2 position = ball.position();
-        return position.y() < WALL_BOTTOM - ball.radius()
-                && position.x() > DRAIN_LEFT && position.x() < DRAIN_RIGHT;
+        return ball.position().y() < -ball.radius();
     }
 
     private boolean isOutOfBounds() {
@@ -137,24 +207,39 @@ public final class GameSimulation {
         float radius = ball.radius();
         return position.x() < WALL_LEFT - radius
                 || position.x() > WALL_RIGHT + radius
-                || position.y() < WALL_BOTTOM - radius
                 || position.y() > WALL_TOP + radius;
+    }
+
+    /** A weak plunge falls back down the lane; put it back on the plunger instead of costing a ball. */
+    private boolean isBackInLauncherLane() {
+        Vec2 position = ball.position();
+        return position.x() > LANE_DIVIDER_X
+                && position.y() <= LAUNCHER_REST_Y - PLUNGER_TRAVEL + 4.0f
+                && ball.velocity().length() < 120.0f;
     }
 
     private void drainBall() {
         ballsRemaining--;
-        launcherPower = 0.0f;
-        stationaryTime = 0.0f;
-        launcherPathActive = false;
         if (ballsRemaining <= 0) {
             gameOver = true;
-            ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM));
-            ball.setVelocity(new Vec2(0.0f, 0.0f));
-            return;
         }
+        returnToLauncher();
+    }
+
+    private void returnToLauncher() {
         ballInLauncher = true;
-        ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_BOTTOM));
+        launcherPower = 0.0f;
+        stationaryTime = 0.0f;
+        launchLocked = launchWasPressed;
+        ball.setPosition(new Vec2(LAUNCHER_X, LAUNCHER_REST_Y));
         ball.setVelocity(new Vec2(0.0f, 0.0f));
+    }
+
+    public void restart() {
+        score = 0;
+        ballsRemaining = STARTING_BALLS;
+        gameOver = false;
+        returnToLauncher();
     }
 
     private void collideWithWalls() {
@@ -171,19 +256,27 @@ public final class GameSimulation {
         if (position.y() > WALL_TOP - radius) {
             position = new Vec2(position.x(), WALL_TOP - radius);
             velocity = new Vec2(velocity.x(), -Math.abs(velocity.y()) * RESTITUTION);
-        } else if (position.y() < WALL_BOTTOM + radius) {
-            position = new Vec2(position.x(), WALL_BOTTOM + radius);
-            velocity = new Vec2(velocity.x(), Math.abs(velocity.y()) * RESTITUTION);
         }
+        // No floor: the bottom of the table is the drain.
         ball.setPosition(position);
         ball.setVelocity(velocity);
     }
 
+    private void collideWithRails() {
+        for (Rail rail : rails) {
+            boolean struck = rail.collide(ball, rail.isKicker() ? 1.0f : RESTITUTION);
+            if (struck && rail.isKicker()) {
+                score += 5;
+            }
+        }
+    }
+
     private void collideWithBumpers() {
-        for (Vec2 bumper : bumpers) {
+        for (int index = 0; index < bumpers.length; index++) {
+            Vec2 bumper = bumpers[index];
             Vec2 separation = ball.position().subtract(bumper);
             float distance = separation.length();
-            float minimumDistance = ball.radius() + 28.0f;
+            float minimumDistance = ball.radius() + BUMPER_RADIUS;
             if (distance >= minimumDistance) {
                 continue;
             }
@@ -193,6 +286,7 @@ public final class GameSimulation {
             if (incomingSpeed < 0.0f) {
                 ball.setVelocity(ball.velocity().subtract(normal.multiply(2.0f * incomingSpeed)).multiply(1.12f));
                 score += 10;
+                bumperGlow[index] = 1.0f;
             }
         }
     }
@@ -211,6 +305,14 @@ public final class GameSimulation {
 
     public Vec2[] bumpers() {
         return bumpers.clone();
+    }
+
+    public float bumperGlow(int index) {
+        return bumperGlow[index];
+    }
+
+    public List<Rail> rails() {
+        return rails;
     }
 
     public boolean ballInLauncher() {
