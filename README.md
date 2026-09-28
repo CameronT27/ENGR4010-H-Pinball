@@ -2,7 +2,7 @@
 
 Online Pinball is a Java/LWJGL prototype for the ENGR4010-H capstone project.
 
-The current prototype opens an interactive OpenGL pinball table. The ball is affected by gravity and bounces off the table boundary, bumpers, and flippers.
+The current prototype opens an interactive OpenGL pinball table. The ball starts in the right-side launcher; hold and release the launch key to choose launch power. The launch follows a curved guide into the playfield, after which gravity and collisions take over. Bumper hits increase the score, and draining the ball between the flippers uses one of three balls.
 
 ## Requirements
 
@@ -78,8 +78,11 @@ Each package must be built on its target operating system because LWJGL includes
 
 ## Controls
 
+- `Space`: hold to charge the right-side launcher, release to launch
 - `A` or `Left Arrow`: activate the left flipper
 - `D` or `Right Arrow`: activate the right flipper
+- `Z`: nudge the table left
+- `X`: nudge the table right
 - `Escape`: close the game window
 
 ## Troubleshooting
