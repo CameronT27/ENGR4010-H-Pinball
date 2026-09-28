@@ -102,6 +102,9 @@ tasks.register('packageApp', Exec) {
         if (osName.contains('mac')) {
             jpackageArguments += ['--java-options', '-XstartOnFirstThread']
         }
+        if (osName.contains('win')) {
+            jpackageArguments += ['--win-dir-chooser', '--win-menu', '--win-shortcut', '--win-shortcut-prompt' /*, '--win-console']*/]
+        }
 
         commandLine(['jpackage'] + jpackageArguments)
     }
