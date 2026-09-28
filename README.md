@@ -83,6 +83,7 @@ Each package must be built on its target operating system because LWJGL includes
 - `D` or `Right Arrow`: activate the right flipper
 - `Z`: nudge the table left
 - `X`: nudge the table right
+- `R`: reset the game and return the ball to the launcher
 - `Escape`: close the game window
 
 ## Troubleshooting
