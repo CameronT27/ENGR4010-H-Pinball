@@ -46,6 +46,36 @@ To compile without opening the window:
 
 On Windows, use `gradlew.bat compileJava` instead.
 
+## Package the App
+
+The project includes a `jpackage` task for creating a platform-specific app package. Run it on the platform you want to distribute:
+
+### macOS
+
+```sh
+./gradlew clean packageApp
+```
+
+This creates a macOS disk image in `build/jpackage/`.
+
+### Windows PowerShell
+
+```powershell
+.\gradlew.bat clean packageApp
+```
+
+This creates a Windows installer in `build/jpackage/`. Windows installer generation requires the WiX Toolset to be installed and available on `PATH`. If WiX is not installed, use the app-image option described below and distribute the generated application directory as a ZIP file.
+
+### Linux
+
+```sh
+./gradlew clean packageApp
+```
+
+This creates a Linux application image in `build/jpackage/`, which can be compressed and distributed as a ZIP or tarball.
+
+Each package must be built on its target operating system because LWJGL includes platform-specific native libraries. The package includes its own Java runtime, so end users do not need to install Java separately.
+
 ## Controls
 
 - `A` or `Left Arrow`: activate the left flipper
