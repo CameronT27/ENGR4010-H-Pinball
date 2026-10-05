@@ -94,7 +94,7 @@ tasks.register('packageApp', Exec) {
                 '--type', packageType,
                 '--input', inputDirectory.absolutePath,
                 '--dest', outputDirectory.absolutePath,
-                '--name', 'OnlinePinball',
+                '--name', 'Pinball',
                 '--main-jar', 'OnlinePinball.jar',
                 '--main-class', 'Main',
                 '--app-version', '1.0.0'

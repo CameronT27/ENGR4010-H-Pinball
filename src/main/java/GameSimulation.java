@@ -63,6 +63,10 @@ public final class GameSimulation {
     private int score;
     private int ballsRemaining = STARTING_BALLS;
     private boolean gameOver;
+    private boolean launchEvent;
+    private boolean bumperEvent;
+    private boolean kickerEvent;
+    private boolean drainEvent;
 
     private static float mirrorX(float x) {
         return 2.0f * PLAYFIELD_CENTER_X - x;
@@ -222,6 +226,7 @@ public final class GameSimulation {
             float speed = LAUNCH_MIN_SPEED + (LAUNCH_MAX_SPEED - LAUNCH_MIN_SPEED) * launcherPower;
             ball.setVelocity(new Vec2(0.0f, speed));
             ballInLauncher = false;
+            launchEvent = true;
             launcherPower = 0.0f;
             stationaryTime = 0.0f;
         }
@@ -248,6 +253,7 @@ public final class GameSimulation {
     }
 
     private void drainBall() {
+        drainEvent = true;
         ballsRemaining--;
         if (ballsRemaining <= 0) {
             gameOver = true;
@@ -290,6 +296,7 @@ public final class GameSimulation {
             boolean struck = rail.collide(ball, rail.isKicker() ? 1.0f : RESTITUTION);
             if (struck && rail.isKicker()) {
                 score += 5;
+                kickerEvent = true;
             }
         }
     }
@@ -309,6 +316,7 @@ public final class GameSimulation {
             if (incomingSpeed < 0.0f) {
                 ball.setVelocity(ball.velocity().subtract(normal.multiply(2.0f * incomingSpeed)).multiply(1.04f));
                 score += 10;
+                bumperEvent = true;
                 bumperGlow[index] = 1.0f;
             }
         }
@@ -360,5 +368,29 @@ public final class GameSimulation {
 
     public boolean gameOver() {
         return gameOver;
+    }
+
+    public boolean consumeLaunchEvent() {
+        boolean occurred = launchEvent;
+        launchEvent = false;
+        return occurred;
+    }
+
+    public boolean consumeBumperEvent() {
+        boolean occurred = bumperEvent;
+        bumperEvent = false;
+        return occurred;
+    }
+
+    public boolean consumeKickerEvent() {
+        boolean occurred = kickerEvent;
+        kickerEvent = false;
+        return occurred;
+    }
+
+    public boolean consumeDrainEvent() {
+        boolean occurred = drainEvent;
+        drainEvent = false;
+        return occurred;
     }
 }

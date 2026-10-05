@@ -5,7 +5,9 @@ import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_M;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
@@ -95,8 +97,12 @@ public final class Main {
 
             GameSimulation simulation = new GameSimulation();
             InputState input = new InputState();
+            try (AudioFeedback audio = new AudioFeedback()) {
             double previousTime = glfwGetTime();
             boolean resetWasPressed = false;
+            boolean enterWasPressed = false;
+            boolean menuWasPressed = false;
+            boolean showingIntro = true;
 
             while (!glfwWindowShouldClose(window)) {
                 double currentTime = glfwGetTime();
@@ -110,22 +116,44 @@ public final class Main {
                     simulation.reset();
                 }
                 resetWasPressed = resetPressed;
+                boolean menuPressed = isPressed(window, GLFW_KEY_M);
+                if (!showingIntro && simulation.gameOver() && menuPressed && !menuWasPressed) {
+                    simulation.reset();
+                    showingIntro = true;
+                }
+                menuWasPressed = menuPressed;
+                boolean enterPressed = isPressed(window, GLFW_KEY_ENTER);
+                if (showingIntro && enterPressed && !enterWasPressed) {
+                    showingIntro = false;
+                }
+                enterWasPressed = enterPressed;
                 input.setLeftFlipper(isPressed(window, GLFW_KEY_A) || isPressed(window, GLFW_KEY_LEFT));
                 input.setRightFlipper(isPressed(window, GLFW_KEY_D) || isPressed(window, GLFW_KEY_RIGHT));
                 input.setLaunchButton(isPressed(window, GLFW_KEY_SPACE));
                 input.setNudgeLeft(isPressed(window, GLFW_KEY_Z));
                 input.setNudgeRight(isPressed(window, GLFW_KEY_X));
 
-                simulation.update(deltaSeconds, input);
-                glfwSetWindowTitle(window, "Online Pinball | Score: " + simulation.score()
-                        + " | Balls: " + simulation.ballsRemaining()
-                    + (simulation.gameOver() ? " | GAME OVER - press R to reset" : ""));
+                if (!showingIntro) {
+                    simulation.update(deltaSeconds, input);
+                    audio.update(simulation, input);
+                    input.advanceFrame();
+                    glfwSetWindowTitle(window, "2.5D Pinball | Score: " + simulation.score()
+                            + " | Balls: " + simulation.ballsRemaining()
+                        + (simulation.gameOver() ? " | GAME OVER - press R to reset" : ""));
+                } else {
+                    glfwSetWindowTitle(window, "2.5D Pinball | Press Enter to start");
+                }
 
                 glClear(GL_COLOR_BUFFER_BIT);
                 applyViewport(window);
-                drawTable(simulation);
+                if (showingIntro) {
+                    drawIntroScreen();
+                } else {
+                    drawTable(simulation);
+                }
                 glfwSwapBuffers(window);
                 glfwPollEvents();
+            }
             }
         } finally {
             glfwDestroyWindow(window);
@@ -149,7 +177,7 @@ public final class Main {
         int width = Math.round(WINDOW_WIDTH * scale);
         int height = Math.round(WINDOW_HEIGHT * scale);
 
-        long window = glfwCreateWindow(width, height, "Online Pinball", NULL, NULL);
+        long window = glfwCreateWindow(width, height, "2.5D Pinball", NULL, NULL);
         if (window == NULL) {
             throw new IllegalStateException("Unable to create GLFW window");
         }
@@ -215,8 +243,46 @@ public final class Main {
         if (simulation.gameOver()) {
             color(0.0f, 0.0f, 0.0f, 0.62f);
             rect(left, 0, right, top);
+            drawText("GAME OVER", 245.0f, 690.0f, 5.0f, 0.95f, 0.35f, 0.25f, 1.0f);
             drawNumber(simulation.score(), 6, centerX, 600.0f, 58.0f, 100.0f, 11.0f, 1.0f, 0.78f, 0.25f, 1.0f, false);
+            drawText("PRESS R TO RESET", 190.0f, 470.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            color(0.12f, 0.25f, 0.29f, 1.0f);
+            rect(160.0f, 330.0f, 560.0f, 410.0f);
+            drawText("M RETURN TO MENU", 205.0f, 370.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         }
+    }
+
+    private static void drawIntroScreen() {
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+
+            verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+                    0.02f, 0.04f, 0.07f, 0.08f, 0.20f, 0.25f);
+            color(0.65f, 0.34f, 0.12f, 1.0f);
+            rect(26.0f, 26.0f, WINDOW_WIDTH - 26.0f, WINDOW_HEIGHT - 26.0f);
+            color(0.03f, 0.08f, 0.11f, 1.0f);
+            rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
+
+            drawText("2.5D PINBALL", 92.0f, 980.0f, 8.0f, 0.95f, 0.65f, 0.20f, 1.0f);
+            drawText("WHATEVER YOU DO,", 115.0f, 835.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawText("WORK AT IT WITH ALL", 95.0f, 790.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawText("YOUR HEART,", 220.0f, 745.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawText("AS WORKING FOR THE LORD,", 78.0f, 700.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawText("NOT FOR HUMAN MASTERS.", 90.0f, 660.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawText("COLOSSIANS 3:23", 162.0f, 610.0f, 3.0f, 0.25f, 0.85f, 0.80f, 1.0f);
+
+            color(0.12f, 0.25f, 0.29f, 1.0f);
+            rect(105.0f, 350.0f, WINDOW_WIDTH - 105.0f, 555.0f);
+            drawText("CONTROLS", 250.0f, 500.0f, 4.0f, 0.95f, 0.75f, 0.20f, 1.0f);
+            drawText("A LEFT FLIPPER", 150.0f, 445.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawText("D RIGHT FLIPPER", 150.0f, 400.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawText("SPACE LAUNCH", 150.0f, 355.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+
+            drawText("PRESS ENTER TO START", 145.0f, 265.0f, 4.0f, 0.95f, 0.35f, 0.25f, 1.0f);
+            drawText("R RESET   ESC QUIT", 190.0f, 180.0f, 3.0f, 0.55f, 0.70f, 0.75f, 1.0f);
     }
 
     private static void drawPlayfieldArt(float centerX) {
@@ -359,9 +425,11 @@ public final class Main {
     // ------------------------------------------------------------------ HUD
 
     private static void drawHud(GameSimulation simulation, float centerX) {
+        drawText("SCORE", centerX - 48.0f, 1150.0f, 2.0f, 0.60f, 0.75f, 0.78f, 1.0f);
         drawNumber(simulation.score(), 6, centerX, 1090.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
 
         // Balls remaining, shown below the flippers.
+        drawText("BALLS", centerX - 32.0f, 55.0f, 2.0f, 0.60f, 0.75f, 0.78f, 1.0f);
         for (int index = 0; index < 3; index++) {
             float x = centerX + (index - 1) * 32.0f;
             if (index < simulation.ballsRemaining()) {
@@ -371,6 +439,7 @@ public final class Main {
             }
             circle(x, 26.0f, 7.0f);
         }
+        drawText("A/D FLIPPERS   SPACE LAUNCH", 125.0f, 115.0f, 2.0f, 0.48f, 0.68f, 0.72f, 1.0f);
     }
 
     private static void drawPowerMeter(GameSimulation simulation) {
@@ -426,6 +495,64 @@ public final class Main {
     }
 
     // ------------------------------------------------------------------ primitives
+
+    private static void drawText(String text, float x, float y, float scale,
+                                 float r, float g, float b, float a) {
+        text = text.toUpperCase();
+        float cursor = x;
+        for (int index = 0; index < text.length(); index++) {
+            char character = text.charAt(index);
+            int[] rows = glyph(character);
+            for (int row = 0; row < rows.length; row++) {
+                for (int column = 0; column < 5; column++) {
+                    if ((rows[row] & (1 << (4 - column))) != 0) {
+                        color(r, g, b, a);
+                        rect(cursor + column * scale, y + (6 - row) * scale,
+                                cursor + (column + 1) * scale, y + (7 - row) * scale);
+                    }
+                }
+            }
+            cursor += character == ' ' ? 3.0f * scale : 6.0f * scale;
+        }
+    }
+
+    private static int[] glyph(char character) {
+        return switch (character) {
+            case 'A' -> new int[]{14, 17, 17, 31, 17, 17, 17};
+            case 'B' -> new int[]{30, 17, 17, 30, 17, 17, 30};
+            case 'C' -> new int[]{14, 17, 16, 16, 16, 17, 14};
+            case 'D' -> new int[]{30, 17, 17, 17, 17, 17, 30};
+            case 'E' -> new int[]{31, 16, 16, 30, 16, 16, 31};
+            case 'F' -> new int[]{31, 16, 16, 30, 16, 16, 16};
+            case 'G' -> new int[]{14, 17, 16, 23, 17, 17, 15};
+            case 'H' -> new int[]{17, 17, 17, 31, 17, 17, 17};
+            case 'I' -> new int[]{31, 4, 4, 4, 4, 4, 31};
+            case 'K' -> new int[]{17, 18, 20, 24, 20, 18, 17};
+            case 'L' -> new int[]{16, 16, 16, 16, 16, 16, 31};
+            case 'M' -> new int[]{17, 27, 21, 21, 17, 17, 17};
+            case 'N' -> new int[]{17, 25, 21, 21, 19, 17, 17};
+            case 'O' -> new int[]{14, 17, 17, 17, 17, 17, 14};
+            case 'P' -> new int[]{30, 17, 17, 30, 16, 16, 16};
+            case 'Q' -> new int[]{14, 17, 17, 17, 21, 18, 13};
+            case 'R' -> new int[]{30, 17, 17, 30, 20, 18, 17};
+            case 'S' -> new int[]{15, 16, 16, 14, 1, 1, 30};
+            case 'T' -> new int[]{31, 4, 4, 4, 4, 4, 4};
+            case 'U' -> new int[]{17, 17, 17, 17, 17, 17, 14};
+            case 'V' -> new int[]{17, 17, 17, 17, 17, 10, 4};
+            case 'W' -> new int[]{17, 17, 17, 21, 21, 21, 10};
+            case 'X' -> new int[]{17, 17, 10, 4, 10, 17, 17};
+            case 'Y' -> new int[]{17, 17, 10, 4, 4, 4, 4};
+            case 'Z' -> new int[]{31, 1, 2, 4, 8, 16, 31};
+            case '2' -> new int[]{14, 17, 1, 2, 4, 8, 31};
+            case '3' -> new int[]{30, 1, 1, 14, 1, 1, 30};
+            case '5' -> new int[]{31, 16, 16, 30, 1, 1, 30};
+            case ' ' -> new int[]{0, 0, 0, 0, 0, 0, 0};
+            case ',' -> new int[]{0, 0, 0, 0, 0, 4, 8};
+            case '.' -> new int[]{0, 0, 0, 0, 0, 6, 6};
+            case ':' -> new int[]{0, 4, 4, 0, 4, 4, 0};
+            default -> new int[]{0, 0, 0, 0, 0, 0, 0};
+        };
+    }
 
     private static void color(float r, float g, float b, float a) {
         glColor4f(r, g, b, a);

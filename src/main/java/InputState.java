@@ -4,6 +4,8 @@ public final class InputState {
     private boolean launchButton;
     private boolean nudgeLeft;
     private boolean nudgeRight;
+    private boolean previousLeftFlipper;
+    private boolean previousRightFlipper;
 
     public void setLeftFlipper(boolean pressed) {
         leftFlipper = pressed;
@@ -17,8 +19,21 @@ public final class InputState {
         return leftFlipper;
     }
 
+    public boolean leftFlipperPressedThisFrame() {
+        return leftFlipper && !previousLeftFlipper;
+    }
+
     public boolean rightFlipper() {
         return rightFlipper;
+    }
+
+    public boolean rightFlipperPressedThisFrame() {
+        return rightFlipper && !previousRightFlipper;
+    }
+
+    public void advanceFrame() {
+        previousLeftFlipper = leftFlipper;
+        previousRightFlipper = rightFlipper;
     }
 
     public void setLaunchButton(boolean pressed) {
