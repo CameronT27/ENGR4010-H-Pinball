@@ -455,6 +455,11 @@ public final class GameSimulation {
         return nextLevelScore;
     }
 
+    /** Temporary development shortcut: qualify the current level without changing it immediately. */
+    public void qualifyForNextLevel() {
+        score = Math.max(score, nextLevelScore);
+    }
+
     public int ballsRemaining() {
         return ballsRemaining;
     }

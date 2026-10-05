@@ -128,6 +128,9 @@ Each package must be built on its target operating system because LWJGL includes
 - `M`: return to the main menu after game over
 - `Escape`: close the game window
 
+During development, `N` temporarily qualifies the current level so the next
+ball drain can be used to test the level transition and life restoration.
+
 ## Troubleshooting
 
 If Java is not found, install a Java 25 JDK and verify it with `java -version`. If Gradle cannot download dependencies, check the internet connection and run the launch command again.

@@ -8,6 +8,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_M;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_N;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
@@ -103,6 +104,7 @@ public final class Main {
             boolean resetWasPressed = false;
             boolean enterWasPressed = false;
             boolean menuWasPressed = false;
+            boolean devLevelWasPressed = false;
             boolean showingIntro = true;
             boolean showingLevelTransition = false;
             float levelTransitionTime = 0.0f;
@@ -125,6 +127,11 @@ public final class Main {
                     showingIntro = true;
                 }
                 menuWasPressed = menuPressed;
+                boolean devLevelPressed = isPressed(window, GLFW_KEY_N);
+                if (!showingIntro && devLevelPressed && !devLevelWasPressed) {
+                    simulation.qualifyForNextLevel();
+                }
+                devLevelWasPressed = devLevelPressed;
                 boolean enterPressed = isPressed(window, GLFW_KEY_ENTER);
                 if (showingIntro && enterPressed && !enterWasPressed) {
                     showingIntro = false;
@@ -460,15 +467,17 @@ public final class Main {
     private static void drawHud(GameSimulation simulation, float centerX) {
         drawText("SCORE", 300.0f, 1165.0f, 2.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         drawNumber(simulation.score(), 6, centerX, 1105.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
-        drawText("LEVEL " + simulation.level(), 300.0f, 1070.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
-        drawText("NEXT " + simulation.nextLevelScore(), 420.0f, 1070.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawText("LEVEL " + simulation.level(), 300.0f, 1040.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
 
         // Keep controls and ball indicators in the cabinet corners, away from the flippers.
         drawText("A/D OR ARROWS", 45.0f, 1165.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
         drawText("SPACE LAUNCH", 45.0f, 1135.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
-        drawText("BALLS", 555.0f, 1165.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
+        float ballsHudCenter = 594.0f;
+        drawCenteredText("BALLS", ballsHudCenter, 1165.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawCenteredText("NEXT " + simulation.nextLevelScore(), ballsHudCenter, 1090.0f,
+                1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
         for (int index = 0; index < 3; index++) {
-            float x = 575.0f + index * 24.0f;
+            float x = ballsHudCenter - 24.0f + index * 24.0f;
             if (index < simulation.ballsRemaining()) {
                 color(0.95f, 0.70f, 0.20f, 0.95f);
             } else {
@@ -476,6 +485,11 @@ public final class Main {
             }
             circle(x, 1138.0f, 6.0f);
         }
+
+        color(0.04f, 0.22f, 0.27f, 0.95f);
+        rect(445.0f, 1035.0f, 615.0f, 1065.0f);
+        drawCenteredText("N DEV: QUALIFY LEVEL", 530.0f, 1045.0f,
+                1.35f, 0.55f, 0.95f, 0.85f, 1.0f);
     }
 
     private static void drawPowerMeter(GameSimulation simulation) {
