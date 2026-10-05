@@ -67,6 +67,7 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 public final class Main {
     private static final int WINDOW_WIDTH = 720;
     private static final int WINDOW_HEIGHT = 1200;
+    private static final float LEVEL_TRANSITION_SECONDS = 1.5f;
 
     // Seven-segment bit masks (a, b, c, d, e, f, g) for the digits 0-9.
     private static final int[] DIGIT_SEGMENTS = {
@@ -103,6 +104,8 @@ public final class Main {
             boolean enterWasPressed = false;
             boolean menuWasPressed = false;
             boolean showingIntro = true;
+            boolean showingLevelTransition = false;
+            float levelTransitionTime = 0.0f;
 
             while (!glfwWindowShouldClose(window)) {
                 double currentTime = glfwGetTime();
@@ -125,6 +128,8 @@ public final class Main {
                 boolean enterPressed = isPressed(window, GLFW_KEY_ENTER);
                 if (showingIntro && enterPressed && !enterWasPressed) {
                     showingIntro = false;
+                    showingLevelTransition = true;
+                    levelTransitionTime = LEVEL_TRANSITION_SECONDS;
                 }
                 enterWasPressed = enterPressed;
                 input.setLeftFlipper(isPressed(window, GLFW_KEY_A) || isPressed(window, GLFW_KEY_LEFT));
@@ -133,13 +138,23 @@ public final class Main {
                 input.setNudgeLeft(isPressed(window, GLFW_KEY_Z));
                 input.setNudgeRight(isPressed(window, GLFW_KEY_X));
 
-                if (!showingIntro) {
+                if (!showingIntro && !showingLevelTransition) {
                     simulation.update(deltaSeconds, input);
                     audio.update(simulation, input);
+                    if (simulation.consumeLevelUpEvent()) {
+                        showingLevelTransition = true;
+                        levelTransitionTime = LEVEL_TRANSITION_SECONDS;
+                    }
                     input.advanceFrame();
                     glfwSetWindowTitle(window, "2.5D Pinball | Score: " + simulation.score()
                             + " | Balls: " + simulation.ballsRemaining()
                         + (simulation.gameOver() ? " | GAME OVER - press R to reset" : ""));
+                } else if (showingLevelTransition) {
+                    levelTransitionTime -= Math.max(deltaSeconds, 0.0f);
+                    if (levelTransitionTime <= 0.0f) {
+                        showingLevelTransition = false;
+                    }
+                    glfwSetWindowTitle(window, "2.5D Pinball | Level " + simulation.level());
                 } else {
                     glfwSetWindowTitle(window, "2.5D Pinball | Press Enter to start");
                 }
@@ -148,6 +163,8 @@ public final class Main {
                 applyViewport(window);
                 if (showingIntro) {
                     drawIntroScreen();
+                } else if (showingLevelTransition) {
+                    drawLevelTransition(simulation.level());
                 } else {
                     drawTable(simulation);
                 }
@@ -233,6 +250,7 @@ public final class Main {
         drawPlayfieldArt(centerX);
         drawLaneArt();
         drawRails(simulation);
+        drawProceduralObstacles(simulation);
         drawBumpers(simulation);
         drawFlippers(simulation);
         drawBall(simulation);
@@ -285,29 +303,32 @@ public final class Main {
             drawCenteredText("OTHER CONTROLS", WINDOW_WIDTH / 2.0f, 190.0f, 2.5f, 0.55f, 0.70f, 0.75f, 1.0f);
             drawCenteredText("R RESET    ESC QUIT", WINDOW_WIDTH / 2.0f, 155.0f, 2.5f, 0.55f, 0.70f, 0.75f, 1.0f);
     }
-    private static void drawPlayfieldArt(float centerX) {
-        // Big center medallion.
-        drawRing(centerX, 520.0f, 110.0f, 5.0f, 0.10f, 0.55f, 0.55f, 0.35f);
-        drawRing(centerX, 520.0f, 70.0f, 3.0f, 0.10f, 0.55f, 0.55f, 0.30f);
-        for (int spoke = 0; spoke < 8; spoke++) {
-            double angle = Math.PI * 2.0 * spoke / 8.0 + Math.PI / 8.0;
-            Vec2 a = new Vec2(centerX + (float) Math.cos(angle) * 70.0f, 520.0f + (float) Math.sin(angle) * 70.0f);
-            Vec2 b = new Vec2(centerX + (float) Math.cos(angle) * 110.0f, 520.0f + (float) Math.sin(angle) * 110.0f);
-            color(0.10f, 0.55f, 0.55f, 0.22f);
-            capsule(a, b, 1.5f);
-        }
-        color(0.95f, 0.70f, 0.20f, 0.55f);
-        circle(centerX, 520.0f, 12.0f);
 
-        // Top rollover lights and side insert lights (decoration only).
-        float[] rolloverX = {centerX - 90.0f, centerX, centerX + 90.0f};
-        for (float x : rolloverX) {
-            insertLight(x, 875.0f, 11.0f, 0.95f, 0.75f, 0.2f);
-        }
-        insertLight(92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
-        insertLight(2.0f * centerX - 92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
-        insertLight(centerX - 140.0f, 600.0f, 9.0f, 0.95f, 0.35f, 0.5f);
-        insertLight(centerX + 140.0f, 600.0f, 9.0f, 0.95f, 0.35f, 0.5f);
+    private static void drawLevelTransition(int level) {
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+                0.01f, 0.06f, 0.08f, 0.04f, 0.24f, 0.28f);
+        color(0.35f, 0.09f, 0.05f, 1.0f);
+        rect(26.0f, 26.0f, WINDOW_WIDTH - 26.0f, WINDOW_HEIGHT - 26.0f);
+        color(0.01f, 0.05f, 0.07f, 1.0f);
+        rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
+        float levelTextWidth = textWidth("LEVEL", 10.0f);
+        float levelNumberWidth = 60.0f;
+        float levelStart = WINDOW_WIDTH / 2.0f - (levelTextWidth + 10.0f + levelNumberWidth) / 2.0f;
+        drawText("LEVEL", levelStart, 650.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+        drawNumber(level, 1, levelStart + levelTextWidth + 10.0f + levelNumberWidth / 2.0f,
+                680.0f, levelNumberWidth, 70.0f, 8.0f, 1.0f, 0.33f, 0.45f, 1.0f, false);
+        drawCenteredText("NEW TABLE LAYOUT", WINDOW_WIDTH / 2.0f, 545.0f,
+                2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
+    }
+    private static void drawPlayfieldArt(float centerX) {
+        // Keep the playfield background clear so decorative markers are not
+        // mistaken for collectible power-ups or pickups.
     }
 
     private static void drawLaneArt() {
@@ -371,6 +392,18 @@ public final class Main {
             circle(bumper.x(), bumper.y(), 19.0f);
             color(0.38f + 0.50f * glow, 0.16f + 0.40f * glow, 0.04f + 0.10f * glow, 1.0f);
             circle(bumper.x(), bumper.y(), 9.0f);
+            drawNumber(simulation.bumperValue(index), 2, bumper.x(), bumper.y() - 2.0f,
+                    8.0f, 12.0f, 2.0f, 0.20f, 0.10f, 0.02f, 0.9f, false);
+        }
+    }
+
+    private static void drawProceduralObstacles(GameSimulation simulation) {
+        for (ScoringRail obstacle : simulation.obstacles()) {
+            Rail rail = obstacle.rail();
+            color(0.02f, 0.10f, 0.12f, 1.0f);
+            capsule(rail.a(), rail.b(), rail.radius() + 3.0f);
+            color(1.0f, 0.33f, 0.45f, 1.0f);
+            capsule(rail.a(), rail.b(), rail.radius());
         }
     }
 
@@ -427,6 +460,8 @@ public final class Main {
     private static void drawHud(GameSimulation simulation, float centerX) {
         drawText("SCORE", 300.0f, 1165.0f, 2.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         drawNumber(simulation.score(), 6, centerX, 1105.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
+        drawText("LEVEL " + simulation.level(), 300.0f, 1070.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawText("NEXT " + simulation.nextLevelScore(), 420.0f, 1070.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
 
         // Keep controls and ball indicators in the cabinet corners, away from the flippers.
         drawText("A/D OR ARROWS", 45.0f, 1165.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
@@ -557,9 +592,16 @@ public final class Main {
             case 'X' -> new int[]{17, 17, 10, 4, 10, 17, 17};
             case 'Y' -> new int[]{17, 17, 10, 4, 4, 4, 4};
             case 'Z' -> new int[]{31, 1, 2, 4, 8, 16, 31};
+            case '0' -> new int[]{14, 17, 19, 21, 25, 17, 14};
+            case '1' -> new int[]{4, 12, 4, 4, 4, 4, 14};
             case '2' -> new int[]{14, 17, 1, 2, 4, 8, 31};
             case '3' -> new int[]{30, 1, 1, 14, 1, 1, 30};
+            case '4' -> new int[]{2, 6, 10, 18, 31, 2, 2};
             case '5' -> new int[]{31, 16, 16, 30, 1, 1, 30};
+            case '6' -> new int[]{14, 16, 16, 30, 17, 17, 14};
+            case '7' -> new int[]{31, 1, 2, 4, 8, 8, 8};
+            case '8' -> new int[]{14, 17, 17, 14, 17, 17, 14};
+            case '9' -> new int[]{14, 17, 17, 15, 1, 1, 14};
             case ' ' -> new int[]{0, 0, 0, 0, 0, 0, 0};
             case ',' -> new int[]{0, 0, 0, 0, 0, 4, 8};
             case '.' -> new int[]{0, 0, 0, 0, 0, 6, 6};
@@ -604,23 +646,6 @@ public final class Main {
         glEnd();
     }
 
-    private static void drawRing(float cx, float cy, float radius, float thickness,
-                                 float r, float g, float b, float a) {
-        int segments = Math.max(32, (int) (radius * 2.0f));
-        float inner = radius - thickness / 2.0f;
-        float outer = radius + thickness / 2.0f;
-        color(r, g, b, a);
-        glBegin(GL_QUAD_STRIP);
-        for (int index = 0; index <= segments; index++) {
-            double angle = Math.PI * 2.0 * index / segments;
-            float cos = (float) Math.cos(angle);
-            float sin = (float) Math.sin(angle);
-            glVertex2f(cx + cos * inner, cy + sin * inner);
-            glVertex2f(cx + cos * outer, cy + sin * outer);
-        }
-        glEnd();
-    }
-
     private static void capsule(Vec2 a, Vec2 b, float radius) {
         Vec2 axis = b.subtract(a);
         float length = axis.length();
@@ -646,12 +671,4 @@ public final class Main {
         glEnd();
     }
 
-    private static void insertLight(float x, float y, float radius, float r, float g, float b) {
-        color(0.01f, 0.06f, 0.08f, 1.0f);
-        circle(x, y, radius + 3.0f);
-        color(r * 0.45f, g * 0.45f, b * 0.45f, 1.0f);
-        circle(x, y, radius);
-        color(r, g, b, 0.55f);
-        circle(x, y, radius * 0.45f);
-    }
 }

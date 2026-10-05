@@ -10,6 +10,12 @@ starts in the right-side launcher; hold and release the launch key to choose
 launch power. The launch follows a curved guide into the playfield, after
 which gravity and collisions take over. Bumper hits increase the score, and
 draining the ball between the flippers uses one of three balls.
+The first level requires 500 points; reaching each next cumulative score target
+qualifies the player for the next level. The level changes only after the
+current ball drains, shows a level transition screen, restores one life up to
+a maximum of three, and generates a new set of randomized scoring obstacles
+and point-valued bumpers. The score resets for the new level, so points above
+the target do not carry over or trigger additional level-ups.
 
 Online connectivity is intentionally out of scope for the first MVP. The team
 can revisit networking after the local game is stable and distributable.
@@ -26,10 +32,11 @@ developer assistance:
 - See the score increase after scoring events.
 - See the remaining-ball count decrease when the ball drains.
 - Hear feedback for launching, flippers, bumpers, table targets, and drains.
+- Reach higher levels by meeting score targets and play with newly generated table elements.
 - Reach game over and reset the game.
 - Understand the controls from the game documentation.
 
-Features such as additional tables, power-ups, progression, game modes,
+Features such as additional tables, power-ups, advanced progression, game modes,
 multiplayer, and advanced visual effects are deferred until this checklist is
 reliable.
 
