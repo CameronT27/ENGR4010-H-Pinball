@@ -8,7 +8,8 @@ public final class GameSimulation {
     public static final float TABLE_HEIGHT = 1200.0f;
     public static final float WALL_LEFT = 28.0f;
     public static final float WALL_RIGHT = TABLE_WIDTH - 28.0f;
-    public static final float WALL_TOP = TABLE_HEIGHT - 28.0f;
+    /** Leaves a dedicated HUD band above the playfield. */
+    public static final float WALL_TOP = 1020.0f;
     /** The wall between the playfield and the launcher lane. */
     public static final float LANE_DIVIDER_X = 628.0f;
     public static final float PLAYFIELD_CENTER_X = (WALL_LEFT + LANE_DIVIDER_X) / 2.0f;
@@ -17,7 +18,7 @@ public final class GameSimulation {
     public static final float PLUNGER_TRAVEL = 30.0f;
 
     private static final float LANE_FLOOR_Y = 28.0f;
-    public static final float LANE_DIVIDER_TOP = 900.0f;
+    public static final float LANE_DIVIDER_TOP = 820.0f;
     private static final float RAIL_RADIUS = 4.0f;
     private static final float FLIPPER_PIVOT_OFFSET = 125.0f;
     private static final float FLIPPER_PIVOT_Y = 115.0f;
@@ -78,8 +79,8 @@ public final class GameSimulation {
         Vec2 rightPivot = rightFlipper.pivot();
 
         // Top corner chamfers: turn the ball coming up the lane toward the playfield.
-        list.add(new Rail(new Vec2(WALL_LEFT, 1052.0f), new Vec2(WALL_LEFT + 120.0f, WALL_TOP), RAIL_RADIUS));
-        list.add(new Rail(new Vec2(WALL_RIGHT, 1052.0f), new Vec2(WALL_RIGHT - 120.0f, WALL_TOP), RAIL_RADIUS));
+        list.add(new Rail(new Vec2(WALL_LEFT, 900.0f), new Vec2(WALL_LEFT + 120.0f, WALL_TOP), RAIL_RADIUS));
+        list.add(new Rail(new Vec2(WALL_RIGHT, 900.0f), new Vec2(WALL_RIGHT - 120.0f, WALL_TOP), RAIL_RADIUS));
 
         // Inlane guides: funnel every ball onto a flipper so the only exit is the center drain.
         list.add(new Rail(new Vec2(WALL_LEFT, 300.0f), leftPivot, RAIL_RADIUS + 1.0f));

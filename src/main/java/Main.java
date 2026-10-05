@@ -219,9 +219,9 @@ public final class Main {
         float divider = GameSimulation.LANE_DIVIDER_X;
         float centerX = GameSimulation.PLAYFIELD_CENTER_X;
 
-        // Cabinet (wood frame) with a lighter inner lip.
-        verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0.10f, 0.04f, 0.02f, 0.32f, 0.12f, 0.05f);
-        color(0.62f, 0.34f, 0.14f, 1.0f);
+        // Cabinet frame uses the same dark teal and red palette as the main screen.
+        verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 0.06f, 0.08f, 0.04f, 0.24f, 0.28f);
+        color(0.35f, 0.09f, 0.05f, 1.0f);
         rect(left - 5.0f, 0, left, top + 5.0f);
         rect(right, 0, right + 5.0f, top + 5.0f);
         rect(left - 5.0f, top, right + 5.0f, top + 5.0f);
@@ -243,12 +243,12 @@ public final class Main {
         if (simulation.gameOver()) {
             color(0.0f, 0.0f, 0.0f, 0.62f);
             rect(left, 0, right, top);
-            drawText("GAME OVER", 245.0f, 690.0f, 5.0f, 0.95f, 0.35f, 0.25f, 1.0f);
+            drawCenteredText("GAME OVER", centerX, 690.0f, 5.0f, 1.0f, 0.33f, 0.45f, 1.0f);
             drawNumber(simulation.score(), 6, centerX, 600.0f, 58.0f, 100.0f, 11.0f, 1.0f, 0.78f, 0.25f, 1.0f, false);
-            drawText("PRESS R TO RESET", 190.0f, 470.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            color(0.12f, 0.25f, 0.29f, 1.0f);
+            drawCenteredText("PRESS R TO RESET", centerX, 470.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            color(0.04f, 0.22f, 0.27f, 1.0f);
             rect(160.0f, 330.0f, 560.0f, 410.0f);
-            drawText("M RETURN TO MENU", 205.0f, 370.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
+            drawCenteredText("M RETURN TO MENU", centerX, 370.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         }
     }
 
@@ -260,31 +260,31 @@ public final class Main {
             glLoadIdentity();
 
             verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
-                    0.02f, 0.04f, 0.07f, 0.08f, 0.20f, 0.25f);
-            color(0.65f, 0.34f, 0.12f, 1.0f);
+                    0.01f, 0.06f, 0.08f, 0.04f, 0.24f, 0.28f);
+            color(0.35f, 0.09f, 0.05f, 1.0f);
             rect(26.0f, 26.0f, WINDOW_WIDTH - 26.0f, WINDOW_HEIGHT - 26.0f);
-            color(0.03f, 0.08f, 0.11f, 1.0f);
+            color(0.01f, 0.05f, 0.07f, 1.0f);
             rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
 
-            drawText("2.5D PINBALL", 92.0f, 980.0f, 8.0f, 0.95f, 0.65f, 0.20f, 1.0f);
-            drawText("WHATEVER YOU DO,", 115.0f, 835.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("WORK AT IT WITH ALL", 95.0f, 790.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("YOUR HEART,", 220.0f, 745.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("AS WORKING FOR THE LORD,", 78.0f, 700.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("NOT FOR HUMAN MASTERS.", 90.0f, 660.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("COLOSSIANS 3:23", 162.0f, 610.0f, 3.0f, 0.25f, 0.85f, 0.80f, 1.0f);
+            drawCenteredText("PINBALL", WINDOW_WIDTH / 2.0f, 980.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+            drawCenteredText("WHATEVER YOU DO,", WINDOW_WIDTH / 2.0f, 835.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("WORK AT IT WITH ALL", WINDOW_WIDTH / 2.0f, 790.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("YOUR HEART,", WINDOW_WIDTH / 2.0f, 745.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("AS WORKING FOR THE LORD,", WINDOW_WIDTH / 2.0f, 700.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("NOT FOR HUMAN MASTERS.", WINDOW_WIDTH / 2.0f, 660.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("COLOSSIANS 3:23", WINDOW_WIDTH / 2.0f, 610.0f, 3.0f, 0.30f, 0.95f, 0.90f, 1.0f);
 
-            color(0.12f, 0.25f, 0.29f, 1.0f);
+            color(0.04f, 0.22f, 0.27f, 1.0f);
             rect(105.0f, 350.0f, WINDOW_WIDTH - 105.0f, 555.0f);
-            drawText("CONTROLS", 250.0f, 500.0f, 4.0f, 0.95f, 0.75f, 0.20f, 1.0f);
-            drawText("A LEFT FLIPPER", 150.0f, 445.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            drawText("D RIGHT FLIPPER", 150.0f, 400.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            drawText("SPACE LAUNCH", 150.0f, 355.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("CONTROLS", WINDOW_WIDTH / 2.0f, 500.0f, 4.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+            drawCenteredText("A OR LEFT ARROW  LEFT FLIPPER", WINDOW_WIDTH / 2.0f, 445.0f, 2.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("D OR RIGHT ARROW  RIGHT FLIPPER", WINDOW_WIDTH / 2.0f, 405.0f, 2.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("SPACE  LAUNCH", WINDOW_WIDTH / 2.0f, 365.0f, 2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
 
-            drawText("PRESS ENTER TO START", 145.0f, 265.0f, 4.0f, 0.95f, 0.35f, 0.25f, 1.0f);
-            drawText("R RESET   ESC QUIT", 190.0f, 180.0f, 3.0f, 0.55f, 0.70f, 0.75f, 1.0f);
+            drawCenteredText("PRESS ENTER TO START", WINDOW_WIDTH / 2.0f, 265.0f, 4.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+            drawCenteredText("OTHER CONTROLS", WINDOW_WIDTH / 2.0f, 190.0f, 2.5f, 0.55f, 0.70f, 0.75f, 1.0f);
+            drawCenteredText("R RESET    ESC QUIT", WINDOW_WIDTH / 2.0f, 155.0f, 2.5f, 0.55f, 0.70f, 0.75f, 1.0f);
     }
-
     private static void drawPlayfieldArt(float centerX) {
         // Big center medallion.
         drawRing(centerX, 520.0f, 110.0f, 5.0f, 0.10f, 0.55f, 0.55f, 0.35f);
@@ -302,7 +302,7 @@ public final class Main {
         // Top rollover lights and side insert lights (decoration only).
         float[] rolloverX = {centerX - 90.0f, centerX, centerX + 90.0f};
         for (float x : rolloverX) {
-            insertLight(x, 1000.0f, 11.0f, 0.95f, 0.75f, 0.2f);
+            insertLight(x, 875.0f, 11.0f, 0.95f, 0.75f, 0.2f);
         }
         insertLight(92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
         insertLight(2.0f * centerX - 92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
@@ -377,13 +377,13 @@ public final class Main {
     private static void drawFlippers(GameSimulation simulation) {
         Flipper[] flippers = {simulation.leftFlipper(), simulation.rightFlipper()};
         for (Flipper flipper : flippers) {
-            color(0.30f, 0.09f, 0.02f, 1.0f);
+            color(0.22f, 0.04f, 0.06f, 1.0f);
             capsule(flipper.pivot(), flipper.endpoint(), 14.0f);
-            color(0.95f, 0.35f, 0.08f, 1.0f);
+            color(1.0f, 0.33f, 0.45f, 1.0f);
             capsule(flipper.pivot(), flipper.endpoint(), 12.0f);
-            color(1.0f, 0.62f, 0.28f, 1.0f);
+            color(1.0f, 0.62f, 0.68f, 1.0f);
             capsule(flipper.pivot(), flipper.endpoint(), 5.0f);
-            color(0.22f, 0.08f, 0.03f, 1.0f);
+            color(0.22f, 0.04f, 0.06f, 1.0f);
             circle(flipper.pivot().x(), flipper.pivot().y(), 4.5f);
         }
     }
@@ -418,28 +418,29 @@ public final class Main {
             float x1 = x + (index % 2 == 0 ? 10.0f : -10.0f);
             capsule(new Vec2(x0, y0), new Vec2(x1, y1), 1.8f);
         }
-        color(0.85f, 0.30f, 0.12f, 1.0f);
+        color(1.0f, 0.33f, 0.45f, 1.0f);
         rect(x - 14.0f, headBottom, x + 14.0f, headTop);
     }
 
     // ------------------------------------------------------------------ HUD
 
     private static void drawHud(GameSimulation simulation, float centerX) {
-        drawText("SCORE", centerX - 48.0f, 1150.0f, 2.0f, 0.60f, 0.75f, 0.78f, 1.0f);
-        drawNumber(simulation.score(), 6, centerX, 1090.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
+        drawText("SCORE", 300.0f, 1165.0f, 2.0f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawNumber(simulation.score(), 6, centerX, 1105.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
 
-        // Balls remaining, shown below the flippers.
-        drawText("BALLS", centerX - 32.0f, 55.0f, 2.0f, 0.60f, 0.75f, 0.78f, 1.0f);
+        // Keep controls and ball indicators in the cabinet corners, away from the flippers.
+        drawText("A/D OR ARROWS", 45.0f, 1165.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawText("SPACE LAUNCH", 45.0f, 1135.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawText("BALLS", 555.0f, 1165.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
         for (int index = 0; index < 3; index++) {
-            float x = centerX + (index - 1) * 32.0f;
+            float x = 575.0f + index * 24.0f;
             if (index < simulation.ballsRemaining()) {
-                color(0.85f, 0.88f, 0.95f, 0.85f);
+                color(0.95f, 0.70f, 0.20f, 0.95f);
             } else {
-                color(0.10f, 0.20f, 0.24f, 0.9f);
+                color(0.10f, 0.24f, 0.27f, 0.9f);
             }
-            circle(x, 26.0f, 7.0f);
+            circle(x, 1138.0f, 6.0f);
         }
-        drawText("A/D FLIPPERS   SPACE LAUNCH", 125.0f, 115.0f, 2.0f, 0.48f, 0.68f, 0.72f, 1.0f);
     }
 
     private static void drawPowerMeter(GameSimulation simulation) {
@@ -514,6 +515,19 @@ public final class Main {
             }
             cursor += character == ' ' ? 3.0f * scale : 6.0f * scale;
         }
+    }
+
+    private static void drawCenteredText(String text, float centerX, float y, float scale,
+                                         float r, float g, float b, float a) {
+        drawText(text, centerX - textWidth(text, scale) / 2.0f, y, scale, r, g, b, a);
+    }
+
+    private static float textWidth(String text, float scale) {
+        float width = 0.0f;
+        for (int index = 0; index < text.length(); index++) {
+            width += text.charAt(index) == ' ' ? 3.0f * scale : 6.0f * scale;
+        }
+        return Math.max(0.0f, width - scale);
     }
 
     private static int[] glyph(char character) {
