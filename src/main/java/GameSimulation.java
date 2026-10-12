@@ -35,7 +35,8 @@ public final class GameSimulation {
     private static final float MAX_STEP = 1.0f / 240.0f;
     private static final float NUDGE_COOLDOWN = 0.35f;
     private static final float STATIONARY_SPEED = 8.0f;
-    private static final float STATIONARY_TIME_LIMIT = 1.25f;
+    private static final float STATIONARY_TIME_LIMIT = 2.5f;
+    private static final float STATIONARY_WARNING_TIME = 1.5f;
     private static final float BUMPER_RADIUS = 28.0f;
     private static final float MIN_BUMPER_SPACING = BUMPER_RADIUS * 2.0f + 4.0f;
     private static final float BUMPER_MIN_X = WALL_LEFT + BUMPER_RADIUS + 8.0f;
@@ -67,6 +68,7 @@ public final class GameSimulation {
     private int bumperHitsSincePowerUp;
     private final List<Rail> rails = buildRails();
     private List<ScoringRail> obstacles;
+    private boolean[] scoringRailContacts;
     private final List<Rail> launcherGate = buildLauncherGate();
 
     private boolean ballInLauncher = true;
@@ -100,10 +102,19 @@ public final class GameSimulation {
     }
 
     private void collideWithObstacles() {
-        for (ScoringRail obstacle : obstacles) {
-            if (obstacle.rail().collide(ball, RESTITUTION)) {
+        for (int index = 0; index < obstacles.size(); index++) {
+            Rail rail = obstacles.get(index).rail();
+            float contactDistance = ball.radius() + rail.radius();
+            float distance = ball.position().subtract(rail.closestPoint(ball.position())).length();
+            if (scoringRailContacts[index] && distance > contactDistance + SCORING_RAIL_CLEARANCE) {
+                scoringRailContacts[index] = false;
+            }
+            if (rail.collide(ball, RESTITUTION) && !scoringRailContacts[index]) {
+                ScoringRail obstacle = obstacles.get(index);
                 addScore(obstacle.points());
                 kickerEvent = true;
+                scoringRailContacts[index] = true;
+                registerBumperHit();
             }
         }
     }
@@ -112,6 +123,20 @@ public final class GameSimulation {
         score += points;
         totalScore += points;
         highScore = Math.max(highScore, totalScore);
+    }
+
+    private void registerBumperHit() {
+        if (pointPowerUp != null) {
+            return;
+        }
+        bumperHitsSincePowerUp++;
+        if (bumperHitsSincePowerUp >= POWER_UP_BUMPER_HIT_REQUIREMENT) {
+            Vec2 spawnedPowerUp = randomPowerUpPosition(new Random());
+            if (spawnedPowerUp != null) {
+                pointPowerUp = spawnedPowerUp;
+                bumperHitsSincePowerUp = 0;
+            }
+        }
     }
 
     private List<Rail> buildRails() {
@@ -213,6 +238,7 @@ public final class GameSimulation {
             generated.add(obstacle);
         }
         obstacles = Collections.unmodifiableList(generated);
+        scoringRailContacts = new boolean[generated.size()];
     }
 
     private ScoringRail randomScoringRail(Random random, List<ScoringRail> existing) {
@@ -595,16 +621,7 @@ public final class GameSimulation {
                 addScore(bumperValues[index]);
                 bumperEvent = true;
                 bumperGlow[index] = 1.0f;
-                if (pointPowerUp == null) {
-                    bumperHitsSincePowerUp++;
-                    if (bumperHitsSincePowerUp >= POWER_UP_BUMPER_HIT_REQUIREMENT) {
-                        Vec2 spawnedPowerUp = randomPowerUpPosition(new Random());
-                        if (spawnedPowerUp != null) {
-                            pointPowerUp = spawnedPowerUp;
-                            bumperHitsSincePowerUp = 0;
-                        }
-                    }
-                }
+                registerBumperHit();
             }
         }
     }
@@ -667,6 +684,10 @@ public final class GameSimulation {
 
     public float launcherPower() {
         return launcherPower;
+    }
+
+    public boolean stationaryWarning() {
+        return stationaryTime >= STATIONARY_WARNING_TIME && stationaryTime < STATIONARY_TIME_LIMIT;
     }
 
     public boolean launcherGateClosed() {

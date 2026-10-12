@@ -332,11 +332,15 @@ public final class Main {
         color(0.01f, 0.05f, 0.07f, 1.0f);
         rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
         float levelTextWidth = textWidth("LEVEL", 10.0f);
-        float levelNumberWidth = 60.0f;
+        int levelDigits = 3;
+        float levelDigitWidth = 60.0f;
+        float levelDigitGap = levelDigitWidth * 0.35f;
+        float levelNumberWidth = levelDigits * levelDigitWidth
+                + (levelDigits - 1) * levelDigitGap;
         float levelStart = WINDOW_WIDTH / 2.0f - (levelTextWidth + 10.0f + levelNumberWidth) / 2.0f;
         drawText("LEVEL", levelStart, 650.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
-        drawNumber(level, 1, levelStart + levelTextWidth + 10.0f + levelNumberWidth / 2.0f,
-                680.0f, levelNumberWidth, 70.0f, 8.0f, 1.0f, 0.33f, 0.45f, 1.0f, false);
+        drawNumber(level, levelDigits, levelStart + levelTextWidth + 10.0f + levelNumberWidth / 2.0f,
+                680.0f, levelDigitWidth, 70.0f, 8.0f, 1.0f, 0.33f, 0.45f, 1.0f, false);
         drawCenteredText("NEW TABLE LAYOUT", WINDOW_WIDTH / 2.0f, 545.0f,
                 2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
     }
@@ -478,6 +482,12 @@ public final class Main {
         drawText("POWER-UP " + simulation.bumperHitsSincePowerUp() + "/10",
                 95.0f, 1040.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
         drawText("LEVEL " + simulation.level(), 300.0f, 1040.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
+        if (simulation.stationaryWarning()) {
+            drawCenteredText("WARNING: BALL WILL DRAIN", centerX, 470.0f,
+                    2.3f, 1.0f, 0.25f, 0.30f, 1.0f);
+            drawCenteredText("NUDGE OR MOVE THE BALL", centerX, 435.0f,
+                    1.8f, 1.0f, 0.75f, 0.25f, 1.0f);
+        }
 
         // Keep controls and ball indicators in the cabinet corners, away from the flippers.
         drawText("A/D OR ARROWS", 45.0f, 1165.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);

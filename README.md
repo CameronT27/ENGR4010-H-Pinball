@@ -23,6 +23,8 @@ and point-valued bumpers. The score resets for the new level, so points above
 the target do not carry over or trigger additional level-ups.
 Red guide channels near the bottom of the playfield redirect the ball toward
 the flippers without awarding points.
+If the ball remains nearly stationary for too long without a flipper being held,
+the game displays a warning before automatically draining it.
 
 Online connectivity is intentionally out of scope for the first MVP. The team
 can revisit networking after the local game is stable and distributable.
