@@ -1,15 +1,18 @@
 /**
  * A static "capsule" obstacle: a line segment with a thickness. Used for the inlane guides,
  * the launcher lane divider, the top-corner chamfers and the slingshot edges.
- * A kick greater than 1.0 makes the rail bouncy (slingshot); 1.0 is a plain wall.
+ * A kick other than 1.0 marks the rail as a guide channel. Guide channels
+ * preserve the bounce direction while applying a small speed gain.
  */
 public record Rail(Vec2 a, Vec2 b, float radius, float kick) {
+    private static final float GUIDE_CHANNEL_ROLL_ACCELERATION = 55.0f;
+
     public Rail(Vec2 a, Vec2 b, float radius) {
         this(a, b, radius, 1.0f);
     }
 
-    public boolean isKicker() {
-        return kick > 1.0f;
+    public boolean isGuideChannel() {
+        return kick != 1.0f;
     }
 
     public Vec2 closestPoint(Vec2 point) {
@@ -45,7 +48,15 @@ public record Rail(Vec2 a, Vec2 b, float radius, float kick) {
             return false;
         }
         Vec2 bounced = ball.velocity().subtract(normal.multiply((1.0f + restitution) * normalSpeed));
-        ball.setVelocity(isKicker() ? bounced.multiply(kick) : bounced);
+        if (isGuideChannel()) {
+            Vec2 along = b.subtract(a).normalized();
+            if (along.y() > 0.0f) {
+                along = along.multiply(-1.0f);
+            }
+            ball.setVelocity(bounced.multiply(kick).add(along.multiply(GUIDE_CHANNEL_ROLL_ACCELERATION)));
+        } else {
+            ball.setVelocity(bounced);
+        }
         return true;
     }
 }

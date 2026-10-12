@@ -9,13 +9,20 @@ The current prototype opens an interactive OpenGL pinball table. The ball
 starts in the right-side launcher; hold and release the launch key to choose
 launch power. The launch follows a curved guide into the playfield, after
 which gravity and collisions take over. Bumper hits increase the score, and
-draining the ball between the flippers uses one of three balls.
-The first level requires 500 points; reaching each next cumulative score target
-qualifies the player for the next level. The level changes only after the
+draining the ball between the flippers uses one of three balls. Point power-ups
+worth 25 points appear after every 10 bumper hits and disappear when collected.
+The run total carries score across level changes, and the current session high
+score is shown on the main screen and after game over.
+The first level requires 350 points; each level's point requirement scales linearly
+with the level number (350 points on level one, 700 on level two, and so on).
+Reaching each level's requirement qualifies the player for the next level. The
+level changes only after the
 current ball drains, shows a level transition screen, restores one life up to
 a maximum of three, and generates a new set of randomized scoring obstacles
 and point-valued bumpers. The score resets for the new level, so points above
 the target do not carry over or trigger additional level-ups.
+Red guide channels near the bottom of the playfield redirect the ball toward
+the flippers without awarding points.
 
 Online connectivity is intentionally out of scope for the first MVP. The team
 can revisit networking after the local game is stable and distributable.
@@ -36,9 +43,8 @@ developer assistance:
 - Reach game over and reset the game.
 - Understand the controls from the game documentation.
 
-Features such as additional tables, power-ups, advanced progression, game modes,
-multiplayer, and advanced visual effects are deferred until this checklist is
-reliable.
+Features such as additional tables, advanced progression, game modes, multiplayer,
+and advanced visual effects are deferred until this checklist is reliable.
 
 Gameplay sound effects are generated at runtime, so no separate audio files are
 required. If the operating system has no available audio line, the game

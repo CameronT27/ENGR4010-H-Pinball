@@ -1,6 +1,3 @@
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
@@ -46,9 +43,7 @@ import static org.lwjgl.opengl.GL11.GL_MODELVIEW;
 import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_PROJECTION;
 import static org.lwjgl.opengl.GL11.GL_QUADS;
-import static org.lwjgl.opengl.GL11.GL_QUAD_STRIP;
 import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
-import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
 import static org.lwjgl.opengl.GL11.glBegin;
 import static org.lwjgl.opengl.GL11.glBlendFunc;
@@ -169,7 +164,7 @@ public final class Main {
                 glClear(GL_COLOR_BUFFER_BIT);
                 applyViewport(window);
                 if (showingIntro) {
-                    drawIntroScreen();
+                    drawIntroScreen(simulation);
                 } else if (showingLevelTransition) {
                     drawLevelTransition(simulation.level());
                 } else {
@@ -246,19 +241,23 @@ public final class Main {
         // Cabinet frame uses the same dark teal and red palette as the main screen.
         verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0.01f, 0.06f, 0.08f, 0.04f, 0.24f, 0.28f);
         color(0.35f, 0.09f, 0.05f, 1.0f);
-        rect(left - 5.0f, 0, left, top + 5.0f);
-        rect(right, 0, right + 5.0f, top + 5.0f);
-        rect(left - 5.0f, top, right + 5.0f, top + 5.0f);
+        float borderRadius = 10.0f;
+        capsule(new Vec2(left - borderRadius, borderRadius),
+                new Vec2(left - borderRadius, top - borderRadius), borderRadius);
+        capsule(new Vec2(right + borderRadius, borderRadius),
+                new Vec2(right + borderRadius, top - borderRadius), borderRadius);
+        capsule(new Vec2(left - borderRadius, top + borderRadius),
+                new Vec2(right + borderRadius, top + borderRadius), borderRadius);
 
         // Playfield and launcher lane.
         verticalGradient(left, 0, right, top, 0.02f, 0.09f, 0.13f, 0.05f, 0.27f, 0.33f);
         verticalGradient(divider, 0, right, top, 0.01f, 0.05f, 0.08f, 0.03f, 0.13f, 0.17f);
 
-        drawPlayfieldArt(centerX);
         drawLaneArt();
         drawRails(simulation);
         drawProceduralObstacles(simulation);
         drawBumpers(simulation);
+        drawPointPowerUp(simulation);
         drawFlippers(simulation);
         drawBall(simulation);
         drawPlunger(simulation);
@@ -269,15 +268,18 @@ public final class Main {
             color(0.0f, 0.0f, 0.0f, 0.62f);
             rect(left, 0, right, top);
             drawCenteredText("GAME OVER", centerX, 690.0f, 5.0f, 1.0f, 0.33f, 0.45f, 1.0f);
-            drawNumber(simulation.score(), 6, centerX, 600.0f, 58.0f, 100.0f, 11.0f, 1.0f, 0.78f, 0.25f, 1.0f, false);
-            drawCenteredText("PRESS R TO RESET", centerX, 470.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("RUN TOTAL", centerX, 610.0f, 2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawNumber(simulation.totalScore(), 6, centerX, 555.0f, 58.0f, 82.0f, 9.0f, 1.0f, 0.78f, 0.25f, 1.0f, false);
+            drawCenteredText("HIGH SCORE " + simulation.highScore(), centerX, 475.0f,
+                    2.5f, 0.95f, 0.75f, 0.20f, 1.0f);
+            drawCenteredText("PRESS R TO RESET", centerX, 420.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
             color(0.04f, 0.22f, 0.27f, 1.0f);
-            rect(160.0f, 330.0f, 560.0f, 410.0f);
-            drawCenteredText("M RETURN TO MENU", centerX, 370.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
+            rect(160.0f, 280.0f, 560.0f, 360.0f);
+            drawCenteredText("M RETURN TO MENU", centerX, 320.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         }
     }
 
-    private static void drawIntroScreen() {
+    private static void drawIntroScreen(GameSimulation simulation) {
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
             glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
@@ -292,23 +294,28 @@ public final class Main {
             rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
 
             drawCenteredText("PINBALL", WINDOW_WIDTH / 2.0f, 980.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
-            drawCenteredText("WHATEVER YOU DO,", WINDOW_WIDTH / 2.0f, 835.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawCenteredText("WORK AT IT WITH ALL", WINDOW_WIDTH / 2.0f, 790.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawCenteredText("YOUR HEART,", WINDOW_WIDTH / 2.0f, 745.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawCenteredText("AS WORKING FOR THE LORD,", WINDOW_WIDTH / 2.0f, 700.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("CURRENT HIGH SCORE: " + simulation.highScore(),
+                    WINDOW_WIDTH / 2.0f, 885.0f, 2.5f, 0.95f, 0.75f, 0.20f, 1.0f);
+            drawCenteredText("WHATEVER YOU DO,", WINDOW_WIDTH / 2.0f, 815.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("WORK AT IT WITH ALL", WINDOW_WIDTH / 2.0f, 775.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("YOUR HEART,", WINDOW_WIDTH / 2.0f, 735.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+            drawCenteredText("AS WORKING FOR THE LORD,", WINDOW_WIDTH / 2.0f, 695.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
             drawCenteredText("NOT FOR HUMAN MASTERS.", WINDOW_WIDTH / 2.0f, 660.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawCenteredText("COLOSSIANS 3:23", WINDOW_WIDTH / 2.0f, 610.0f, 3.0f, 0.30f, 0.95f, 0.90f, 1.0f);
+            drawCenteredText("COLOSSIANS 3:23", WINDOW_WIDTH / 2.0f, 620.0f, 3.0f, 0.30f, 0.95f, 0.90f, 1.0f);
 
-            color(0.04f, 0.22f, 0.27f, 1.0f);
-            rect(105.0f, 350.0f, WINDOW_WIDTH - 105.0f, 555.0f);
-            drawCenteredText("CONTROLS", WINDOW_WIDTH / 2.0f, 500.0f, 4.0f, 1.0f, 0.33f, 0.45f, 1.0f);
-            drawCenteredText("A OR LEFT ARROW  LEFT FLIPPER", WINDOW_WIDTH / 2.0f, 445.0f, 2.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            drawCenteredText("D OR RIGHT ARROW  RIGHT FLIPPER", WINDOW_WIDTH / 2.0f, 405.0f, 2.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            drawCenteredText("SPACE  LAUNCH", WINDOW_WIDTH / 2.0f, 365.0f, 2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
-
-            drawCenteredText("PRESS ENTER TO START", WINDOW_WIDTH / 2.0f, 265.0f, 4.0f, 1.0f, 0.33f, 0.45f, 1.0f);
-            drawCenteredText("OTHER CONTROLS", WINDOW_WIDTH / 2.0f, 190.0f, 2.5f, 0.55f, 0.70f, 0.75f, 1.0f);
-            drawCenteredText("R RESET    ESC QUIT", WINDOW_WIDTH / 2.0f, 155.0f, 2.5f, 0.55f, 0.70f, 0.75f, 1.0f);
+            drawCenteredText("PRESS ENTER TO START", WINDOW_WIDTH / 2.0f, 545.0f, 4.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+            color(0.22f, 0.04f, 0.06f, 1.0f);
+            rect(185.0f, 171.0f, 535.0f, 467.0f);
+            drawCenteredText("CONTROLS", WINDOW_WIDTH / 2.0f, 415.0f, 4.0f, 0.95f, 0.95f, 0.95f, 1.0f);
+            drawCenteredText("A OR LEFT ARROW  LEFT FLIPPER", WINDOW_WIDTH / 2.0f, 375.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("D OR RIGHT ARROW  RIGHT FLIPPER", WINDOW_WIDTH / 2.0f, 345.0f, 1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("SPACE  LAUNCH", WINDOW_WIDTH / 2.0f, 315.0f, 2.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("Z  NUDGE LEFT      X  NUDGE RIGHT", WINDOW_WIDTH / 2.0f, 275.0f,
+                    1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("R  RESET GAME", WINDOW_WIDTH / 2.0f, 235.0f,
+                    1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+            drawCenteredText("M  RETURN TO MENU      ESC  QUIT", WINDOW_WIDTH / 2.0f, 195.0f,
+                    1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
     }
 
     private static void drawLevelTransition(int level) {
@@ -333,11 +340,6 @@ public final class Main {
         drawCenteredText("NEW TABLE LAYOUT", WINDOW_WIDTH / 2.0f, 545.0f,
                 2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
     }
-    private static void drawPlayfieldArt(float centerX) {
-        // Keep the playfield background clear so decorative markers are not
-        // mistaken for collectible power-ups or pickups.
-    }
-
     private static void drawLaneArt() {
         // Upward chevrons showing the launch direction.
         for (int index = 0; index < 4; index++) {
@@ -350,37 +352,26 @@ public final class Main {
     }
 
     private static void drawRails(GameSimulation simulation) {
-        List<Rail> kickers = new ArrayList<>();
-        for (Rail rail : simulation.rails()) {
-            if (rail.isKicker()) {
-                kickers.add(rail);
-            }
-        }
-        // Slingshot bodies: rails come in triples that form one triangle.
-        for (int index = 0; index + 2 < kickers.size(); index += 3) {
-            color(0.75f, 0.10f, 0.25f, 1.0f);
-            triangle(kickers.get(index).a(), kickers.get(index + 1).a(), kickers.get(index + 2).a());
-        }
         // Dark outline first, then the bright rail on top.
         for (Rail rail : simulation.rails()) {
             color(0.02f, 0.10f, 0.12f, 1.0f);
             capsule(rail.a(), rail.b(), rail.radius() + 2.0f);
         }
         for (Rail rail : simulation.rails()) {
-            if (rail.isKicker()) {
-                color(1.0f, 0.33f, 0.45f, 1.0f);
+            if (rail.isGuideChannel()) {
+                color(0.75f, 0.10f, 0.25f, 1.0f);
             } else {
                 color(0.30f, 0.88f, 0.80f, 1.0f);
             }
             capsule(rail.a(), rail.b(), rail.radius());
         }
         if (simulation.launcherGateClosed()) {
-            color(0.02f, 0.10f, 0.12f, 1.0f);
-            capsule(new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.LANE_DIVIDER_TOP),
-                new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.WALL_TOP), 6.0f);
-            color(0.30f, 0.88f, 0.80f, 1.0f);
-            capsule(new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.LANE_DIVIDER_TOP),
-                new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.WALL_TOP), 4.0f);
+            for (Rail rail : simulation.launcherGate()) {
+                color(0.02f, 0.10f, 0.12f, 1.0f);
+                capsule(rail.a(), rail.b(), rail.radius() + 2.0f);
+                color(0.30f, 0.88f, 0.80f, 1.0f);
+                capsule(rail.a(), rail.b(), rail.radius());
+            }
         }
     }
 
@@ -402,6 +393,21 @@ public final class Main {
             drawNumber(simulation.bumperValue(index), 2, bumper.x(), bumper.y() - 2.0f,
                     8.0f, 12.0f, 2.0f, 0.20f, 0.10f, 0.02f, 0.9f, false);
         }
+    }
+
+    private static void drawPointPowerUp(GameSimulation simulation) {
+        Vec2 powerUp = simulation.pointPowerUp();
+        if (powerUp == null) {
+            return;
+        }
+        color(1.0f, 0.85f, 0.30f, 0.18f);
+        circle(powerUp.x(), powerUp.y(), 29.0f);
+        color(0.95f, 0.70f, 0.12f, 1.0f);
+        circle(powerUp.x(), powerUp.y(), 18.0f);
+        color(0.30f, 0.12f, 0.02f, 1.0f);
+        circle(powerUp.x(), powerUp.y(), 13.0f);
+        drawNumber(25, 2, powerUp.x(), powerUp.y() - 2.0f,
+                6.0f, 9.0f, 1.5f, 1.0f, 0.90f, 0.45f, 1.0f, false);
     }
 
     private static void drawProceduralObstacles(GameSimulation simulation) {
@@ -467,6 +473,10 @@ public final class Main {
     private static void drawHud(GameSimulation simulation, float centerX) {
         drawText("SCORE", 300.0f, 1165.0f, 2.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         drawNumber(simulation.score(), 6, centerX, 1105.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
+        drawText("TOTAL " + simulation.totalScore(), 95.0f, 1075.0f,
+                1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawText("POWER-UP " + simulation.bumperHitsSincePowerUp() + "/10",
+                95.0f, 1040.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
         drawText("LEVEL " + simulation.level(), 300.0f, 1040.0f, 1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
 
         // Keep controls and ball indicators in the cabinet corners, away from the flippers.
@@ -675,14 +685,6 @@ public final class Main {
         }
         circle(a.x(), a.y(), radius);
         circle(b.x(), b.y(), radius);
-    }
-
-    private static void triangle(Vec2 a, Vec2 b, Vec2 c) {
-        glBegin(GL_TRIANGLES);
-        glVertex2f(a.x(), a.y());
-        glVertex2f(b.x(), b.y());
-        glVertex2f(c.x(), c.y());
-        glEnd();
     }
 
 }

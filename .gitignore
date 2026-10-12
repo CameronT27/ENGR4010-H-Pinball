@@ -1,6 +1,15 @@
 .gradle/
 build/
 
+# Operating system metadata
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
 # IntelliJ IDEA
 *.iml
 .idea/
