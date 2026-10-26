@@ -41,6 +41,8 @@ import static org.lwjgl.glfw.GLFW.glfwWindowShouldClose;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import static org.lwjgl.opengl.GL11.GL_BLEND;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
 import static org.lwjgl.opengl.GL11.GL_MODELVIEW;
 import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_PROJECTION;
@@ -54,12 +56,17 @@ import static org.lwjgl.opengl.GL11.glBlendFunc;
 import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glColor4f;
+import static org.lwjgl.opengl.GL11.glDisable;
 import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glEnd;
+import static org.lwjgl.opengl.GL11.glFrustum;
 import static org.lwjgl.opengl.GL11.glLoadIdentity;
 import static org.lwjgl.opengl.GL11.glMatrixMode;
 import static org.lwjgl.opengl.GL11.glOrtho;
+import static org.lwjgl.opengl.GL11.glRotatef;
+import static org.lwjgl.opengl.GL11.glTranslatef;
 import static org.lwjgl.opengl.GL11.glVertex2f;
+import static org.lwjgl.opengl.GL11.glVertex3f;
 import static org.lwjgl.opengl.GL11.glViewport;
 import static org.lwjgl.opengl.GL13.GL_MULTISAMPLE;
 import static org.lwjgl.system.MemoryUtil.NULL;
@@ -94,6 +101,7 @@ public final class Main {
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glEnable(GL_MULTISAMPLE);
+            glEnable(GL_DEPTH_TEST);
 
             GameSimulation simulation = new GameSimulation();
             InputState input = new InputState();
@@ -144,7 +152,7 @@ public final class Main {
                     glfwSetWindowTitle(window, "2.5D Pinball | Press Enter to start");
                 }
 
-                glClear(GL_COLOR_BUFFER_BIT);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 applyViewport(window);
                 if (showingIntro) {
                     drawIntroScreen();
@@ -209,9 +217,14 @@ public final class Main {
     private static void drawTable(GameSimulation simulation) {
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glFrustum(-38.0, 38.0, -63.0, 63.0, 100.0, 3000.0);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
+        glTranslatef(-GameSimulation.TABLE_WIDTH / 2.0f, -550.0f, -1050.0f);
+        glRotatef(-30.0f, 1.0f, 0.0f, 0.0f);
+
+        drawTableSlab();
+        glDisable(GL_DEPTH_TEST);
 
         float left = GameSimulation.WALL_LEFT;
         float right = GameSimulation.WALL_RIGHT;
@@ -250,9 +263,49 @@ public final class Main {
             rect(160.0f, 330.0f, 560.0f, 410.0f);
             drawText("M RETURN TO MENU", 205.0f, 370.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         }
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    private static void drawTableSlab() {
+        float left = GameSimulation.WALL_LEFT - 35.0f;
+        float right = GameSimulation.WALL_RIGHT + 35.0f;
+        float bottom = -35.0f;
+        float top = GameSimulation.WALL_TOP + 35.0f;
+        float upperZ = -8.0f;
+        float lowerZ = -48.0f;
+
+        color(0.18f, 0.07f, 0.025f, 1.0f);
+        glBegin(GL_QUADS);
+        // Top surface.
+        glVertex3f(left, bottom, upperZ);
+        glVertex3f(right, bottom, upperZ);
+        glVertex3f(right, top, upperZ);
+        glVertex3f(left, top, upperZ);
+        // Left side.
+        glVertex3f(left, bottom, lowerZ);
+        glVertex3f(left, top, lowerZ);
+        glVertex3f(left, top, upperZ);
+        glVertex3f(left, bottom, upperZ);
+        // Right side.
+        glVertex3f(right, bottom, lowerZ);
+        glVertex3f(right, bottom, upperZ);
+        glVertex3f(right, top, upperZ);
+        glVertex3f(right, top, lowerZ);
+        // Front side.
+        glVertex3f(left, bottom, lowerZ);
+        glVertex3f(left, bottom, upperZ);
+        glVertex3f(right, bottom, upperZ);
+        glVertex3f(right, bottom, lowerZ);
+        // Back side.
+        glVertex3f(left, top, lowerZ);
+        glVertex3f(right, top, lowerZ);
+        glVertex3f(right, top, upperZ);
+        glVertex3f(left, top, upperZ);
+        glEnd();
     }
 
     private static void drawIntroScreen() {
+            glDisable(GL_DEPTH_TEST);
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
             glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
@@ -283,6 +336,7 @@ public final class Main {
 
             drawText("PRESS ENTER TO START", 145.0f, 265.0f, 4.0f, 0.95f, 0.35f, 0.25f, 1.0f);
             drawText("R RESET   ESC QUIT", 190.0f, 180.0f, 3.0f, 0.55f, 0.70f, 0.75f, 1.0f);
+            glEnable(GL_DEPTH_TEST);
     }
 
     private static void drawPlayfieldArt(float centerX) {
