@@ -63,6 +63,8 @@ import static org.lwjgl.opengl.GL11.glFrustum;
 import static org.lwjgl.opengl.GL11.glLoadIdentity;
 import static org.lwjgl.opengl.GL11.glMatrixMode;
 import static org.lwjgl.opengl.GL11.glOrtho;
+import static org.lwjgl.opengl.GL11.glPopMatrix;
+import static org.lwjgl.opengl.GL11.glPushMatrix;
 import static org.lwjgl.opengl.GL11.glRotatef;
 import static org.lwjgl.opengl.GL11.glTranslatef;
 import static org.lwjgl.opengl.GL11.glVertex2f;
@@ -234,7 +236,7 @@ public final class Main {
 
         // Cabinet (wood frame) with a lighter inner lip.
         verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0.10f, 0.04f, 0.02f, 0.32f, 0.12f, 0.05f);
-        color(0.62f, 0.34f, 0.14f, 1.0f);
+        color(0.06f, 0.035f, 0.025f, 1.0f);
         rect(left - 5.0f, 0, left, top + 5.0f);
         rect(right, 0, right + 5.0f, top + 5.0f);
         rect(left - 5.0f, top, right + 5.0f, top + 5.0f);
@@ -243,6 +245,8 @@ public final class Main {
         verticalGradient(left, 0, right, top, 0.02f, 0.09f, 0.13f, 0.05f, 0.27f, 0.33f);
         verticalGradient(divider, 0, right, top, 0.01f, 0.05f, 0.08f, 0.03f, 0.13f, 0.17f);
 
+        drawBackboard();
+        drawBackboardDisplay(simulation);
         drawPlayfieldArt(centerX);
         drawLaneArt();
         drawRails(simulation);
@@ -302,6 +306,84 @@ public final class Main {
         glVertex3f(right, top, upperZ);
         glVertex3f(left, top, upperZ);
         glEnd();
+    }
+
+    private static void drawBackboard() {
+        float left = GameSimulation.WALL_LEFT - 35.0f;
+        float right = GameSimulation.WALL_RIGHT + 35.0f;
+        float tableTop = GameSimulation.WALL_TOP;
+        float panelBottom = -8.0f;
+        float panelTop = 300.0f;
+        float frontY = tableTop + 8.0f;
+        float backY = tableTop + 42.0f;
+
+        color(0.35f, 0.12f, 0.04f, 1.0f);
+        glBegin(GL_QUADS);
+        // Front face of the upright cabinet.
+        glVertex3f(left, frontY, panelBottom);
+        glVertex3f(right, frontY, panelBottom);
+        glVertex3f(right, frontY, panelTop);
+        glVertex3f(left, frontY, panelTop);
+        // Cabinet thickness.
+        glVertex3f(left, backY, panelBottom);
+        glVertex3f(left, frontY, panelBottom);
+        glVertex3f(left, frontY, panelTop);
+        glVertex3f(left, backY, panelTop);
+        glVertex3f(right, frontY, panelBottom);
+        glVertex3f(right, backY, panelBottom);
+        glVertex3f(right, backY, panelTop);
+        glVertex3f(right, frontY, panelTop);
+        glVertex3f(left, backY, panelBottom);
+        glVertex3f(right, backY, panelBottom);
+        glVertex3f(right, backY, panelTop);
+        glVertex3f(left, backY, panelTop);
+        // Top and bottom caps.
+        glVertex3f(left, frontY, panelTop);
+        glVertex3f(right, frontY, panelTop);
+        glVertex3f(right, backY, panelTop);
+        glVertex3f(left, backY, panelTop);
+        glVertex3f(left, frontY, panelBottom);
+        glVertex3f(left, backY, panelBottom);
+        glVertex3f(right, backY, panelBottom);
+        glVertex3f(right, frontY, panelBottom);
+        glEnd();
+
+        color(0.10f, 0.34f, 0.38f, 1.0f);
+        glBegin(GL_QUADS);
+        // Display face inset into the front of the cabinet.
+        glVertex3f(left + 22.0f, frontY - 0.5f, panelBottom + 22.0f);
+        glVertex3f(right - 22.0f, frontY - 0.5f, panelBottom + 22.0f);
+        glVertex3f(right - 22.0f, frontY - 0.5f, panelTop - 22.0f);
+        glVertex3f(left + 22.0f, frontY - 0.5f, panelTop - 22.0f);
+        glEnd();
+    }
+
+    private static void drawBackboardDisplay(GameSimulation simulation) {
+        float centerX = GameSimulation.TABLE_WIDTH / 2.0f;
+        float panelBottom = -8.0f;
+        float frontY = GameSimulation.WALL_TOP + 8.0f;
+
+        glPushMatrix();
+        glTranslatef(0.0f, frontY - 1.0f, panelBottom);
+        glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
+
+        drawText("SCORE", centerX - 30.0f, 250.0f, 2.0f,
+                0.60f, 0.75f, 0.78f, 1.0f);
+        drawNumber(simulation.score(), 6, centerX, 190.0f, 30.0f, 48.0f, 6.0f,
+                0.95f, 0.75f, 0.20f, 0.95f, true);
+        drawText("BALLS", centerX - 30.0f, 92.0f, 2.0f,
+                0.60f, 0.75f, 0.78f, 1.0f);
+        for (int index = 0; index < 3; index++) {
+            float x = centerX + (index - 1) * 32.0f;
+            boolean available = index < simulation.ballsRemaining();
+            color(available ? 0.85f : 0.10f,
+                    available ? 0.88f : 0.20f,
+                    available ? 0.95f : 0.24f,
+                    0.9f);
+            circle(x, 82.0f, 7.0f);
+        }
+
+        glPopMatrix();
     }
 
     private static void drawIntroScreen() {
@@ -479,20 +561,6 @@ public final class Main {
     // ------------------------------------------------------------------ HUD
 
     private static void drawHud(GameSimulation simulation, float centerX) {
-        drawText("SCORE", centerX - 48.0f, 1150.0f, 2.0f, 0.60f, 0.75f, 0.78f, 1.0f);
-        drawNumber(simulation.score(), 6, centerX, 1090.0f, 34.0f, 58.0f, 7.0f, 0.95f, 0.75f, 0.2f, 0.65f, true);
-
-        // Balls remaining, shown below the flippers.
-        drawText("BALLS", centerX - 32.0f, 55.0f, 2.0f, 0.60f, 0.75f, 0.78f, 1.0f);
-        for (int index = 0; index < 3; index++) {
-            float x = centerX + (index - 1) * 32.0f;
-            if (index < simulation.ballsRemaining()) {
-                color(0.85f, 0.88f, 0.95f, 0.85f);
-            } else {
-                color(0.10f, 0.20f, 0.24f, 0.9f);
-            }
-            circle(x, 26.0f, 7.0f);
-        }
         drawText("A/D FLIPPERS   SPACE LAUNCH", 125.0f, 115.0f, 2.0f, 0.48f, 0.68f, 0.72f, 1.0f);
     }
 
