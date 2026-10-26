@@ -72,4 +72,17 @@ public class Window {
     public int getHeight() {
         return height;
     }
+
+    public int[] getFramebufferSize() {
+        int[] framebufferWidth = new int[1];
+        int[] framebufferHeight = new int[1];
+
+        GLFW.glfwGetFramebufferSize(
+                windowHandle,
+                framebufferWidth,
+                framebufferHeight
+        );
+
+        return new int[] { framebufferWidth[0], framebufferHeight[0] };
+    }
 }

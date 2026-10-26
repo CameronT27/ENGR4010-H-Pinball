@@ -30,7 +30,7 @@ public class Game {
 
         window.create();
 
-        renderer.init();
+        renderer.init(window);
     }
 
     private void gameLoop() {

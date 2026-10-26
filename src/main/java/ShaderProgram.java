@@ -161,5 +161,21 @@ public class ShaderProgram {
                 );
         }
         }
+
+    public void setUniform(
+            String name,
+            float red,
+            float green,
+            float blue,
+            float alpha
+    ) {
+        int location = GL20.glGetUniformLocation(programId, name);
+
+        if (location == -1) {
+            throw new IllegalStateException("Uniform not found: " + name);
+        }
+
+        GL20.glUniform4f(location, red, green, blue, alpha);
+    }
     
 }
