@@ -332,7 +332,7 @@ public final class Main {
         color(0.01f, 0.05f, 0.07f, 1.0f);
         rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
         float levelTextWidth = textWidth("LEVEL", 10.0f);
-        int levelDigits = 3;
+        int levelDigits = Math.max(1, Integer.toString(Math.max(0, level)).length());
         float levelDigitWidth = 60.0f;
         float levelDigitGap = levelDigitWidth * 0.35f;
         float levelNumberWidth = levelDigits * levelDigitWidth
