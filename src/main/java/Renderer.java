@@ -63,9 +63,8 @@ public class Renderer {
                     0.85f, 0.45f, 0.12f
             ),
 
-            // Flippers.
-            flipper(205, 225, 115, 28, false, 1.0f, 0.72f, 0.18f),
-            flipper(515, 225, 115, 28, true,  1.0f, 0.72f, 0.18f),
+            flipper(175, 198, 115, 28, false, 1.0f, 0.72f, 0.18f),
+            flipper(545, 198, 115, 28, true,  1.0f, 0.72f, 0.18f),
 
             // Bumper placeholders.
             circle(285, 865, 38, 1.0f, 0.20f, 0.30f),
@@ -109,71 +108,67 @@ public class Renderer {
                 1.0f
         );
     }
-
     
 
-    
-    
-    private GameObject flipper(
-            float x,
-            float y,
-            float length,
-            float thickness,
-            boolean mirror,
-            float red,
-            float green,
-            float blue
-    ) {
-        // Paddle starts horizontal, with a narrow outer tip
-        // and a wider end near the hinge.
-        float[] vertices = {
-            0.00f, 0.30f,
-            0.10f, 0.00f,
-            0.78f, 0.18f,
 
-            0.00f, 0.30f,
-            0.78f, 0.18f,
-            1.00f, 0.50f,
+private GameObject flipper(
+        float x,
+        float y,
+        float length,
+        float thickness,
+        boolean mirror,
+        float red,
+        float green,
+        float blue
+) {
+    // Both flippers use the same shape.
+    // The broad hinge is at x = 0; the narrow tip is at x = 1.
+    float[] vertices = {
+        0.00f, 0.30f,
+        0.10f, 0.00f,
+        0.78f, 0.18f,
 
-            0.00f, 0.30f,
-            1.00f, 0.50f,
-            0.78f, 0.82f,
+        0.00f, 0.30f,
+        0.78f, 0.18f,
+        1.00f, 0.50f,
 
-            0.00f, 0.30f,
-            0.78f, 0.82f,
-            0.10f, 1.00f
-        };
+        0.00f, 0.30f,
+        1.00f, 0.50f,
+        0.78f, 0.82f,
 
-        if (mirror) {
-            for (int i = 0; i < vertices.length; i += 2) {
-                vertices[i] = 1.0f - vertices[i];
-            }
-        }
+        0.00f, 0.30f,
+        0.78f, 0.82f,
+        0.10f, 1.00f
+    };
 
-        Mesh mesh = new Mesh(vertices);
+    Mesh mesh = new Mesh(vertices);
+    Transform transform = new Transform();
 
-        Transform transform = new Transform();
-        transform.setPosition(x, y - thickness / 2.0f);
+    // The hinge stays at the specified position.
+    // Negative horizontal scale mirrors the right flipper
+    // without moving its hinge away from the support.
+    transform.setPosition(x, y - thickness / 2.0f + 65.0f);
+
+    if (mirror) {
+        transform.setScale(-length, thickness);
+        transform.setRotation(25.0f);
+    } else {
         transform.setScale(length, thickness);
-
-        // Opposing angles for the two paddles.
-        transform.setRotation(mirror ? -25.0f : 25.0f);
-
-        return new GameObject(
-                mesh,
-                transform,
-                red,
-                green,
-                blue,
-                1.0f
-        );
+        transform.setRotation(-25.0f);
     }
 
+    return new GameObject(
+            mesh,
+            transform,
+            red,
+            green,
+            blue,
+            1.0f
+    );
+}
 
 
 
-
-    
     private GameObject circle(
             float centerX,
             float centerY,
@@ -253,33 +248,6 @@ public class Renderer {
                 1.0f
         );
     }
-    
-    private void updateViewport(int windowWidth, int windowHeight) {
-        if (windowWidth <= 0 || windowHeight <= 0) {
-            return;
-        }
-
-        float worldAspect = camera.getWidth() / camera.getHeight();
-        float windowAspect = (float) windowWidth / windowHeight;
-
-        int viewportWidth;
-        int viewportHeight;
-
-        if (windowAspect > worldAspect) {
-            viewportHeight = windowHeight;
-            viewportWidth = Math.round(viewportHeight * worldAspect);
-        } else {
-            viewportWidth = windowWidth;
-            viewportHeight = Math.round(viewportWidth / worldAspect);
-        }
-
-        int x = (windowWidth - viewportWidth) / 2;
-        int y = (windowHeight - viewportHeight) / 2;
-
-        GL11.glViewport(x, y, viewportWidth, viewportHeight);
-    }
-
-
 
     public void render() {
          updateViewport();
