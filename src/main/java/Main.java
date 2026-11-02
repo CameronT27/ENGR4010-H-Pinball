@@ -823,6 +823,26 @@ public final class Main {
                 capsule(rail.a(), rail.b(), rail.radius());
             }
         }
+        drawOrbitRails(simulation);
+    }
+
+    private static void drawOrbitRails(GameSimulation simulation) {
+        List<Vec2> path = simulation.orbitPath();
+        for (int index = 1; index < path.size(); index++) {
+            Vec2 start = path.get(index - 1);
+            Vec2 end = path.get(index);
+            color(0.12f, 0.05f, 0.02f, 1.0f);
+            capsule(start, end, 12.0f);
+            color(0.78f, 0.72f, 0.62f, 1.0f);
+            capsule(start, end, 7.0f);
+        }
+        Vec2 target = path.get(3);
+        color(1.0f, 0.55f, 0.12f, 0.35f);
+        circle(target.x(), target.y(), 28.0f);
+        color(1.0f, 0.72f, 0.20f, 1.0f);
+        circle(target.x(), target.y(), 14.0f);
+        drawText("100", target.x() - 12.0f, target.y() - 5.0f, 1.4f,
+                0.18f, 0.06f, 0.01f, 1.0f);
     }
 
     private static void drawBumpers(GameSimulation simulation) {
@@ -865,12 +885,15 @@ public final class Main {
         float radius = simulation.ball().radius();
         color(0.0f, 0.0f, 0.0f, 0.35f);
         circle(position.x() + 4.0f, position.y() - 4.0f, radius);
+        glPushMatrix();
+        glTranslatef(0.0f, 0.0f, simulation.orbitHeight());
         color(0.55f, 0.58f, 0.66f, 1.0f);
         circle(position.x(), position.y(), radius);
         color(0.82f, 0.85f, 0.91f, 1.0f);
         circle(position.x() - radius * 0.15f, position.y() + radius * 0.15f, radius * 0.72f);
         color(1.0f, 1.0f, 1.0f, 0.95f);
         circle(position.x() - radius * 0.35f, position.y() + radius * 0.35f, radius * 0.25f);
+        glPopMatrix();
     }
 
     private static void drawPlunger(GameSimulation simulation) {

@@ -37,6 +37,9 @@ public final class GameSimulation {
     private static final float STATIONARY_SPEED = 8.0f;
     private static final float STATIONARY_TIME_LIMIT = 2.5f;
     private static final float STATIONARY_WARNING_TIME = 1.5f;
+    private static final float ORBIT_SPEED = 520.0f;
+    private static final float ORBIT_HEIGHT = 105.0f;
+    private static final int ORBIT_SCORE = 100;
     private static final float BUMPER_RADIUS = 28.0f;
     private static final float MIN_BUMPER_SPACING = BUMPER_RADIUS * 2.0f + 4.0f;
     private static final float BUMPER_MIN_X = WALL_LEFT + BUMPER_RADIUS + 8.0f;
@@ -62,6 +65,7 @@ public final class GameSimulation {
     private int[] bumperValues;
     private float[] bumperGlow;
     private final List<Rail> rails = buildRails();
+    private final List<Vec2> orbitPath = buildOrbitPath();
     private List<ScoringRail> obstacles;
     private boolean[] scoringRailContacts;
     private final List<Rail> launcherGate = buildLauncherGate();
@@ -87,6 +91,9 @@ public final class GameSimulation {
     private boolean kickerEvent;
     private boolean drainEvent;
     private boolean levelUpEvent;
+    private boolean orbitActive;
+    private float orbitDistance;
+    private boolean orbitScored;
 
     public GameSimulation() {
         generateLevelLayout();
@@ -154,6 +161,75 @@ public final class GameSimulation {
             addGuideChannel(list, side == 0 ? innerChannel : mirrorPoints(innerChannel));
         }
         return Collections.unmodifiableList(list);
+    }
+
+    private static List<Vec2> buildOrbitPath() {
+        List<Vec2> path = new ArrayList<>();
+        path.add(new Vec2(548.0f, 340.0f));
+        path.add(new Vec2(574.0f, 470.0f));
+        path.add(new Vec2(580.0f, 680.0f));
+        path.add(new Vec2(570.0f, 830.0f));
+        path.add(new Vec2(520.0f, 930.0f));
+        path.add(new Vec2(430.0f, 970.0f));
+        return Collections.unmodifiableList(path);
+    }
+
+    private float orbitLength() {
+        float length = 0.0f;
+        for (int index = 1; index < orbitPath.size(); index++) {
+            length += orbitPath.get(index).subtract(orbitPath.get(index - 1)).length();
+        }
+        return length;
+    }
+
+    private Vec2 orbitPosition(float distance) {
+        float remaining = distance;
+        for (int index = 1; index < orbitPath.size(); index++) {
+            Vec2 start = orbitPath.get(index - 1);
+            Vec2 end = orbitPath.get(index);
+            float segmentLength = end.subtract(start).length();
+            if (remaining <= segmentLength) {
+                return start.add(end.subtract(start).multiply(
+                        segmentLength == 0.0f ? 0.0f : remaining / segmentLength));
+            }
+            remaining -= segmentLength;
+        }
+        return orbitPath.get(orbitPath.size() - 1);
+    }
+
+    private void updateOrbit(float step) {
+        orbitDistance += ORBIT_SPEED * step;
+        float length = orbitLength();
+        float progress = Math.min(1.0f, orbitDistance / length);
+        ball.setPosition(orbitPosition(orbitDistance));
+        ball.setVelocity(new Vec2(0.0f, 0.0f));
+        if (!orbitScored && progress >= 0.58f) {
+            addScore(ORBIT_SCORE);
+            kickerEvent = true;
+            orbitScored = true;
+        }
+        if (progress >= 1.0f) {
+            orbitActive = false;
+            orbitDistance = 0.0f;
+            orbitScored = false;
+            ball.setVelocity(new Vec2(-280.0f, -80.0f));
+            stationaryTime = 0.0f;
+        }
+    }
+
+    private boolean tryEnterOrbit() {
+        Vec2 position = ball.position();
+        if (position.x() >= 525.0f && position.x() <= 570.0f
+                && position.y() >= 295.0f && position.y() <= 375.0f
+                && ball.velocity().y() > 180.0f) {
+            orbitActive = true;
+            orbitDistance = 0.0f;
+            orbitScored = false;
+            ball.setPosition(orbitPath.get(0));
+            ball.setVelocity(new Vec2(0.0f, 0.0f));
+            return true;
+        }
+        return false;
     }
 
     private static void addRoundedTopCorner(List<Rail> rails, boolean rightSide) {
@@ -351,6 +427,11 @@ public final class GameSimulation {
             return;
         }
 
+        if (orbitActive) {
+            updateOrbit(step);
+            return;
+        }
+
         ball.integrate(step, new Vec2(0.0f, GRAVITY));
         limitSpeed();
         if (isDrained() || isOutOfBounds()) {
@@ -359,6 +440,9 @@ public final class GameSimulation {
         }
         if (isBackInLauncherLane()) {
             returnToLauncher();
+            return;
+        }
+        if (tryEnterOrbit()) {
             return;
         }
         if (!launcherGateClosed && ball.position().x() < LANE_DIVIDER_X
@@ -420,6 +504,9 @@ public final class GameSimulation {
         ballsRemaining = STARTING_BALLS;
         gameOver = false;
         levelUpEvent = false;
+        orbitActive = false;
+        orbitDistance = 0.0f;
+        orbitScored = false;
         generateLevelLayout();
     }
 
@@ -614,6 +701,22 @@ public final class GameSimulation {
 
     public int score() {
         return score;
+    }
+
+    public List<Vec2> orbitPath() {
+        return orbitPath;
+    }
+
+    public boolean orbitActive() {
+        return orbitActive;
+    }
+
+    public float orbitHeight() {
+        if (!orbitActive) {
+            return 0.0f;
+        }
+        float progress = Math.min(1.0f, orbitDistance / orbitLength());
+        return (float) Math.sin(Math.PI * progress) * ORBIT_HEIGHT;
     }
 
     public int totalScore() {
