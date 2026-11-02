@@ -300,15 +300,49 @@ public final class Main {
         drawFrontMachineOverlay(simulation);
 
         if (simulation.gameOver()) {
-            color(0.0f, 0.0f, 0.0f, 0.62f);
-            rect(left, 0, right, top);
-            drawText("GAME OVER", 245.0f, 690.0f, 5.0f, 0.95f, 0.35f, 0.25f, 1.0f);
-            drawNumber(simulation.score(), 6, centerX, 600.0f, 58.0f, 100.0f, 11.0f, 1.0f, 0.78f, 0.25f, 1.0f, false);
-            drawText("PRESS R TO RESET", 190.0f, 470.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            color(0.12f, 0.25f, 0.29f, 1.0f);
-            rect(160.0f, 330.0f, 560.0f, 410.0f);
-            drawText("M RETURN TO MENU", 205.0f, 370.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
+            drawGameOverOverlay(simulation);
         }
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    private static void drawGameOverOverlay(GameSimulation simulation) {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        float panelWidth = WINDOW_WIDTH * 0.72f;
+        float panelHeight = WINDOW_HEIGHT * 0.40f;
+        float panelLeft = (WINDOW_WIDTH - panelWidth) / 2.0f;
+        float panelRight = panelLeft + panelWidth;
+        float panelBottom = WINDOW_HEIGHT * 0.27f;
+        float panelTop = panelBottom + panelHeight;
+        float centerX = WINDOW_WIDTH * 0.50f;
+
+        color(0.0f, 0.0f, 0.0f, 0.66f);
+        rect(0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT);
+        color(0.10f, 0.035f, 0.02f, 0.98f);
+        rect(panelLeft, panelBottom, panelRight, panelTop);
+        color(0.35f, 0.12f, 0.04f, 1.0f);
+        rect(panelLeft + panelWidth * 0.025f, panelBottom + panelHeight * 0.025f,
+                panelRight - panelWidth * 0.025f, panelTop - panelHeight * 0.025f);
+        color(0.015f, 0.05f, 0.06f, 0.98f);
+        rect(panelLeft + panelWidth * 0.07f, panelBottom + panelHeight * 0.08f,
+                panelRight - panelWidth * 0.07f, panelTop - panelHeight * 0.08f);
+
+        drawCenteredText("GAME OVER", centerX, panelTop - panelHeight * 0.20f,
+                5.0f, 0.95f, 0.35f, 0.25f, 1.0f);
+        drawNumber(simulation.score(), 7, centerX, panelTop - panelHeight * 0.43f,
+                42.0f, 70.0f, 8.0f, 1.0f, 0.78f, 0.25f, 1.0f, false);
+        drawCenteredText("PRESS R TO RESET", centerX, panelBottom + panelHeight * 0.30f,
+                3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+        color(0.12f, 0.25f, 0.29f, 1.0f);
+        rect(panelLeft + panelWidth * 0.18f, panelBottom + panelHeight * 0.09f,
+                panelRight - panelWidth * 0.18f, panelBottom + panelHeight * 0.20f);
+        drawCenteredText("M RETURN TO MENU", centerX, panelBottom + panelHeight * 0.125f,
+                2.6f, 0.95f, 0.75f, 0.20f, 1.0f);
         glEnable(GL_DEPTH_TEST);
     }
 
