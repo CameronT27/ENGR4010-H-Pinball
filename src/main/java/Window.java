@@ -1,6 +1,8 @@
 package game;
+import java.nio.IntBuffer;
 
 import org.lwjgl.glfw.GLFW;
+import org.lwjgl.system.MemoryStack;
 
 public class Window {
 
@@ -47,6 +49,26 @@ public class Window {
         GLFW.glfwShowWindow(windowHandle);
     }
 
+    
+    public int[] getFramebufferSize() {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer widthBuffer = stack.mallocInt(1);
+            IntBuffer heightBuffer = stack.mallocInt(1);
+
+            GLFW.glfwGetFramebufferSize(
+                    windowHandle,
+                    widthBuffer,
+                    heightBuffer
+            );
+
+            return new int[] {
+                    widthBuffer.get(0),
+                    heightBuffer.get(0)
+            };
+        }
+    }
+
+
     public boolean shouldClose() {
         return GLFW.glfwWindowShouldClose(windowHandle);
     }
@@ -71,5 +93,8 @@ public class Window {
 
     public int getHeight() {
         return height;
+    }
+    public boolean isKeyDown(int key) {
+        return GLFW.glfwGetKey(windowHandle, key) == GLFW.GLFW_PRESS;
     }
 }
