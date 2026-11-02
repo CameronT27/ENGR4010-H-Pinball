@@ -8,6 +8,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_M;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_N;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
@@ -47,7 +48,6 @@ import static org.lwjgl.opengl.GL11.GL_MODELVIEW;
 import static org.lwjgl.opengl.GL11.GL_ONE_MINUS_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_PROJECTION;
 import static org.lwjgl.opengl.GL11.GL_QUADS;
-import static org.lwjgl.opengl.GL11.GL_QUAD_STRIP;
 import static org.lwjgl.opengl.GL11.GL_SRC_ALPHA;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
 import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
@@ -76,6 +76,7 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 public final class Main {
     private static final int WINDOW_WIDTH = 720;
     private static final int WINDOW_HEIGHT = 1200;
+    private static final float LEVEL_TRANSITION_SECONDS = 1.5f;
 
     // Seven-segment bit masks (a, b, c, d, e, f, g) for the digits 0-9.
     private static final int[] DIGIT_SEGMENTS = {
@@ -112,7 +113,10 @@ public final class Main {
             boolean resetWasPressed = false;
             boolean enterWasPressed = false;
             boolean menuWasPressed = false;
+            boolean devLevelWasPressed = false;
             boolean showingIntro = true;
+            boolean showingLevelTransition = false;
+            float levelTransitionTime = 0.0f;
 
             while (!glfwWindowShouldClose(window)) {
                 double currentTime = glfwGetTime();
@@ -132,9 +136,16 @@ public final class Main {
                     showingIntro = true;
                 }
                 menuWasPressed = menuPressed;
+                boolean devLevelPressed = isPressed(window, GLFW_KEY_N);
+                if (!showingIntro && !showingLevelTransition && devLevelPressed && !devLevelWasPressed) {
+                    simulation.qualifyForNextLevel();
+                }
+                devLevelWasPressed = devLevelPressed;
                 boolean enterPressed = isPressed(window, GLFW_KEY_ENTER);
                 if (showingIntro && enterPressed && !enterWasPressed) {
                     showingIntro = false;
+                    showingLevelTransition = true;
+                    levelTransitionTime = LEVEL_TRANSITION_SECONDS;
                 }
                 enterWasPressed = enterPressed;
                 input.setLeftFlipper(isPressed(window, GLFW_KEY_A) || isPressed(window, GLFW_KEY_LEFT));
@@ -143,13 +154,23 @@ public final class Main {
                 input.setNudgeLeft(isPressed(window, GLFW_KEY_Z));
                 input.setNudgeRight(isPressed(window, GLFW_KEY_X));
 
-                if (!showingIntro) {
+                if (!showingIntro && !showingLevelTransition) {
                     simulation.update(deltaSeconds, input);
                     audio.update(simulation, input);
+                    if (simulation.consumeLevelUpEvent()) {
+                        showingLevelTransition = true;
+                        levelTransitionTime = LEVEL_TRANSITION_SECONDS;
+                    }
                     input.advanceFrame();
                     glfwSetWindowTitle(window, "2.5D Pinball | Score: " + simulation.score()
                             + " | Balls: " + simulation.ballsRemaining()
                         + (simulation.gameOver() ? " | GAME OVER - press R to reset" : ""));
+                } else if (showingLevelTransition) {
+                    levelTransitionTime -= Math.max(deltaSeconds, 0.0f);
+                    if (levelTransitionTime <= 0.0f) {
+                        showingLevelTransition = false;
+                    }
+                    glfwSetWindowTitle(window, "2.5D Pinball | Level " + simulation.level());
                 } else {
                     glfwSetWindowTitle(window, "2.5D Pinball | Press Enter to start");
                 }
@@ -157,7 +178,9 @@ public final class Main {
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 applyViewport(window);
                 if (showingIntro) {
-                    drawIntroScreen();
+                    drawIntroScreen(simulation);
+                } else if (showingLevelTransition) {
+                    drawLevelTransition(simulation.level());
                 } else {
                     drawTable(simulation);
                 }
@@ -222,10 +245,13 @@ public final class Main {
         glFrustum(-38.0, 38.0, -63.0, 63.0, 100.0, 3000.0);
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
-        glTranslatef(-GameSimulation.TABLE_WIDTH / 2.0f, -550.0f, -1050.0f);
-        glRotatef(-30.0f, 1.0f, 0.0f, 0.0f);
+        // Bring the cabinet closer and aim higher so the raised backbox and playfield
+        // fill the portrait viewport instead of leaving unused space above the table.
+        glTranslatef(-GameSimulation.TABLE_WIDTH / 2.0f, -420.0f, -820.0f);
+        glRotatef(-50.0f, 1.0f, 0.0f, 0.0f);
 
         drawTableSlab();
+        drawCabinetDepth();
         glDisable(GL_DEPTH_TEST);
 
         float left = GameSimulation.WALL_LEFT;
@@ -247,14 +273,13 @@ public final class Main {
 
         drawBackboard();
         drawBackboardDisplay(simulation);
-        drawPlayfieldArt(centerX);
         drawLaneArt();
         drawRails(simulation);
         drawBumpers(simulation);
+        drawPointPowerUp(simulation);
         drawFlippers(simulation);
         drawBall(simulation);
         drawPlunger(simulation);
-        drawHud(simulation, centerX);
         drawPowerMeter(simulation);
 
         if (simulation.gameOver()) {
@@ -308,6 +333,48 @@ public final class Main {
         glEnd();
     }
 
+    private static void drawCabinetDepth() {
+        float left = GameSimulation.WALL_LEFT - 35.0f;
+        float right = GameSimulation.WALL_RIGHT + 35.0f;
+        float playfieldLeft = GameSimulation.WALL_LEFT - 5.0f;
+        float playfieldRight = GameSimulation.WALL_RIGHT + 5.0f;
+        float bottom = -8.0f;
+        float top = GameSimulation.WALL_TOP + 8.0f;
+        float surfaceZ = -8.0f;
+        float wallZ = 18.0f;
+
+        color(0.10f, 0.035f, 0.018f, 1.0f);
+        glBegin(GL_QUADS);
+        // Raised left and right cabinet walls frame the tilted playfield.
+        glVertex3f(left, bottom, surfaceZ);
+        glVertex3f(playfieldLeft, bottom, surfaceZ);
+        glVertex3f(playfieldLeft, top, surfaceZ);
+        glVertex3f(left, top, surfaceZ);
+        glVertex3f(playfieldRight, bottom, surfaceZ);
+        glVertex3f(right, bottom, surfaceZ);
+        glVertex3f(right, top, surfaceZ);
+        glVertex3f(playfieldRight, top, surfaceZ);
+        glEnd();
+
+        color(0.28f, 0.08f, 0.025f, 1.0f);
+        glBegin(GL_QUADS);
+        // Inner faces expose the height of the side rails.
+        glVertex3f(playfieldLeft, bottom, surfaceZ);
+        glVertex3f(playfieldLeft, bottom, wallZ);
+        glVertex3f(playfieldLeft, top, wallZ);
+        glVertex3f(playfieldLeft, top, surfaceZ);
+        glVertex3f(playfieldRight, bottom, wallZ);
+        glVertex3f(playfieldRight, bottom, surfaceZ);
+        glVertex3f(playfieldRight, top, surfaceZ);
+        glVertex3f(playfieldRight, top, wallZ);
+        // Front apron near the flippers.
+        glVertex3f(left, bottom, surfaceZ);
+        glVertex3f(right, bottom, surfaceZ);
+        glVertex3f(right, bottom, wallZ);
+        glVertex3f(left, bottom, wallZ);
+        glEnd();
+    }
+
     private static void drawBackboard() {
         float left = GameSimulation.WALL_LEFT - 35.0f;
         float right = GameSimulation.WALL_RIGHT + 35.0f;
@@ -348,6 +415,19 @@ public final class Main {
         glVertex3f(right, frontY, panelBottom);
         glEnd();
 
+        color(0.18f, 0.055f, 0.018f, 1.0f);
+        glBegin(GL_QUADS);
+        // Supports separate the upright backbox from the playfield plane.
+        glVertex3f(left + 28.0f, tableTop, -8.0f);
+        glVertex3f(left + 48.0f, tableTop, -8.0f);
+        glVertex3f(left + 48.0f, tableTop + 42.0f, -8.0f);
+        glVertex3f(left + 28.0f, tableTop + 42.0f, -8.0f);
+        glVertex3f(right - 48.0f, tableTop, -8.0f);
+        glVertex3f(right - 28.0f, tableTop, -8.0f);
+        glVertex3f(right - 28.0f, tableTop + 42.0f, -8.0f);
+        glVertex3f(right - 48.0f, tableTop + 42.0f, -8.0f);
+        glEnd();
+
         color(0.10f, 0.34f, 0.38f, 1.0f);
         glBegin(GL_QUADS);
         // Display face inset into the front of the cabinet.
@@ -371,79 +451,118 @@ public final class Main {
                 0.60f, 0.75f, 0.78f, 1.0f);
         drawNumber(simulation.score(), 6, centerX, 190.0f, 30.0f, 48.0f, 6.0f,
                 0.95f, 0.75f, 0.20f, 0.95f, true);
-        drawText("BALLS", centerX - 30.0f, 92.0f, 2.0f,
+
+        drawText("TOTAL " + simulation.totalScore(), 65.0f, 145.0f,
+                1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawText("POWER-UP " + simulation.bumperHitsSincePowerUp() + "/10",
+                65.0f, 115.0f, 1.55f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawText("LEVEL " + simulation.level(), 425.0f, 145.0f,
+                1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
+
+        drawText("BALLS", 500.0f, 250.0f, 1.8f,
                 0.60f, 0.75f, 0.78f, 1.0f);
+        drawText("NEXT " + simulation.nextLevelScore(), 485.0f, 115.0f,
+                1.55f, 0.85f, 0.90f, 0.92f, 1.0f);
         for (int index = 0; index < 3; index++) {
-            float x = centerX + (index - 1) * 32.0f;
+            float x = 515.0f + index * 24.0f;
             boolean available = index < simulation.ballsRemaining();
             color(available ? 0.85f : 0.10f,
                     available ? 0.88f : 0.20f,
                     available ? 0.95f : 0.24f,
                     0.9f);
-            circle(x, 82.0f, 7.0f);
+            circle(x, 215.0f, 6.0f);
+        }
+
+        drawText("A/D OR ARROWS", 65.0f, 75.0f,
+                1.55f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawText("SPACE LAUNCH", 65.0f, 48.0f,
+                1.55f, 0.85f, 0.90f, 0.92f, 1.0f);
+        color(0.04f, 0.22f, 0.27f, 0.95f);
+        rect(445.0f, 42.0f, 615.0f, 72.0f);
+        drawCenteredText("N DEV: QUALIFY LEVEL", 530.0f, 51.0f,
+                1.15f, 0.55f, 0.95f, 0.85f, 1.0f);
+        if (simulation.stationaryWarning()) {
+            drawText("WARNING: BALL WILL DRAIN", 300.0f, 75.0f,
+                    1.35f, 1.0f, 0.25f, 0.30f, 1.0f);
+            drawText("NUDGE OR MOVE THE BALL", 300.0f, 48.0f,
+                    1.25f, 1.0f, 0.75f, 0.25f, 1.0f);
         }
 
         glPopMatrix();
     }
 
-    private static void drawIntroScreen() {
-            glDisable(GL_DEPTH_TEST);
-            glMatrixMode(GL_PROJECTION);
-            glLoadIdentity();
-            glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
-            glMatrixMode(GL_MODELVIEW);
-            glLoadIdentity();
+    private static void drawIntroScreen(GameSimulation simulation) {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
 
-            verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
-                    0.02f, 0.04f, 0.07f, 0.08f, 0.20f, 0.25f);
-            color(0.65f, 0.34f, 0.12f, 1.0f);
-            rect(26.0f, 26.0f, WINDOW_WIDTH - 26.0f, WINDOW_HEIGHT - 26.0f);
-            color(0.03f, 0.08f, 0.11f, 1.0f);
-            rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
+        verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+                0.01f, 0.06f, 0.08f, 0.04f, 0.24f, 0.28f);
+        color(0.35f, 0.09f, 0.05f, 1.0f);
+        rect(26.0f, 26.0f, WINDOW_WIDTH - 26.0f, WINDOW_HEIGHT - 26.0f);
+        color(0.01f, 0.05f, 0.07f, 1.0f);
+        rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
 
-            drawText("2.5D PINBALL", 92.0f, 980.0f, 8.0f, 0.95f, 0.65f, 0.20f, 1.0f);
-            drawText("WHATEVER YOU DO,", 115.0f, 835.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("WORK AT IT WITH ALL", 95.0f, 790.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("YOUR HEART,", 220.0f, 745.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("AS WORKING FOR THE LORD,", 78.0f, 700.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("NOT FOR HUMAN MASTERS.", 90.0f, 660.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
-            drawText("COLOSSIANS 3:23", 162.0f, 610.0f, 3.0f, 0.25f, 0.85f, 0.80f, 1.0f);
+        drawCenteredText("PINBALL", WINDOW_WIDTH / 2.0f, 980.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+        drawCenteredText("CURRENT HIGH SCORE: " + simulation.highScore(),
+                WINDOW_WIDTH / 2.0f, 885.0f, 2.5f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawCenteredText("WHATEVER YOU DO,", WINDOW_WIDTH / 2.0f, 815.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+        drawCenteredText("WORK AT IT WITH ALL", WINDOW_WIDTH / 2.0f, 775.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+        drawCenteredText("YOUR HEART,", WINDOW_WIDTH / 2.0f, 735.0f, 3.0f, 0.85f, 0.85f, 0.90f, 1.0f);
+        drawCenteredText("AS WORKING FOR THE LORD,", WINDOW_WIDTH / 2.0f, 695.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
+        drawCenteredText("NOT FOR HUMAN MASTERS.", WINDOW_WIDTH / 2.0f, 660.0f, 2.5f, 0.85f, 0.85f, 0.90f, 1.0f);
+        drawCenteredText("COLOSSIANS 3:23", WINDOW_WIDTH / 2.0f, 620.0f, 3.0f, 0.30f, 0.95f, 0.90f, 1.0f);
 
-            color(0.12f, 0.25f, 0.29f, 1.0f);
-            rect(105.0f, 350.0f, WINDOW_WIDTH - 105.0f, 555.0f);
-            drawText("CONTROLS", 250.0f, 500.0f, 4.0f, 0.95f, 0.75f, 0.20f, 1.0f);
-            drawText("A LEFT FLIPPER", 150.0f, 445.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            drawText("D RIGHT FLIPPER", 150.0f, 400.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-            drawText("SPACE LAUNCH", 150.0f, 355.0f, 3.0f, 0.85f, 0.90f, 0.92f, 1.0f);
-
-            drawText("PRESS ENTER TO START", 145.0f, 265.0f, 4.0f, 0.95f, 0.35f, 0.25f, 1.0f);
-            drawText("R RESET   ESC QUIT", 190.0f, 180.0f, 3.0f, 0.55f, 0.70f, 0.75f, 1.0f);
-            glEnable(GL_DEPTH_TEST);
+        drawCenteredText("PRESS ENTER TO START", WINDOW_WIDTH / 2.0f, 545.0f, 4.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+        color(0.22f, 0.04f, 0.06f, 1.0f);
+        rect(185.0f, 171.0f, 535.0f, 467.0f);
+        drawCenteredText("CONTROLS", WINDOW_WIDTH / 2.0f, 415.0f, 4.0f, 0.95f, 0.95f, 0.95f, 1.0f);
+        drawCenteredText("A OR LEFT ARROW  LEFT FLIPPER", WINDOW_WIDTH / 2.0f, 375.0f,
+                1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawCenteredText("D OR RIGHT ARROW  RIGHT FLIPPER", WINDOW_WIDTH / 2.0f, 345.0f,
+                1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawCenteredText("SPACE  LAUNCH", WINDOW_WIDTH / 2.0f, 315.0f,
+                2.0f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawCenteredText("Z  NUDGE LEFT      X  NUDGE RIGHT", WINDOW_WIDTH / 2.0f, 275.0f,
+                1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawCenteredText("R  RESET GAME", WINDOW_WIDTH / 2.0f, 235.0f,
+                1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawCenteredText("M  RETURN TO MENU      ESC  QUIT", WINDOW_WIDTH / 2.0f, 195.0f,
+                1.8f, 0.85f, 0.90f, 0.92f, 1.0f);
+        glEnable(GL_DEPTH_TEST);
     }
 
-    private static void drawPlayfieldArt(float centerX) {
-        // Big center medallion.
-        drawRing(centerX, 520.0f, 110.0f, 5.0f, 0.10f, 0.55f, 0.55f, 0.35f);
-        drawRing(centerX, 520.0f, 70.0f, 3.0f, 0.10f, 0.55f, 0.55f, 0.30f);
-        for (int spoke = 0; spoke < 8; spoke++) {
-            double angle = Math.PI * 2.0 * spoke / 8.0 + Math.PI / 8.0;
-            Vec2 a = new Vec2(centerX + (float) Math.cos(angle) * 70.0f, 520.0f + (float) Math.sin(angle) * 70.0f);
-            Vec2 b = new Vec2(centerX + (float) Math.cos(angle) * 110.0f, 520.0f + (float) Math.sin(angle) * 110.0f);
-            color(0.10f, 0.55f, 0.55f, 0.22f);
-            capsule(a, b, 1.5f);
-        }
-        color(0.95f, 0.70f, 0.20f, 0.55f);
-        circle(centerX, 520.0f, 12.0f);
+    private static void drawLevelTransition(int level) {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
 
-        // Top rollover lights and side insert lights (decoration only).
-        float[] rolloverX = {centerX - 90.0f, centerX, centerX + 90.0f};
-        for (float x : rolloverX) {
-            insertLight(x, 1000.0f, 11.0f, 0.95f, 0.75f, 0.2f);
-        }
-        insertLight(92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
-        insertLight(2.0f * centerX - 92.0f, 470.0f, 9.0f, 0.4f, 0.95f, 0.85f);
-        insertLight(centerX - 140.0f, 600.0f, 9.0f, 0.95f, 0.35f, 0.5f);
-        insertLight(centerX + 140.0f, 600.0f, 9.0f, 0.95f, 0.35f, 0.5f);
+        verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+                0.01f, 0.06f, 0.08f, 0.04f, 0.24f, 0.28f);
+        color(0.35f, 0.09f, 0.05f, 1.0f);
+        rect(26.0f, 26.0f, WINDOW_WIDTH - 26.0f, WINDOW_HEIGHT - 26.0f);
+        color(0.01f, 0.05f, 0.07f, 1.0f);
+        rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
+
+        float levelTextWidth = textWidth("LEVEL", 10.0f);
+        int levelDigits = Math.max(1, Integer.toString(Math.max(0, level)).length());
+        float levelDigitWidth = 60.0f;
+        float levelDigitGap = levelDigitWidth * 0.35f;
+        float levelNumberWidth = levelDigits * levelDigitWidth
+                + (levelDigits - 1) * levelDigitGap;
+        float levelStart = WINDOW_WIDTH / 2.0f - (levelTextWidth + 10.0f + levelNumberWidth) / 2.0f;
+        drawText("LEVEL", levelStart, 650.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+        drawNumber(level, levelDigits, levelStart + levelTextWidth + 10.0f + levelNumberWidth / 2.0f,
+                680.0f, levelDigitWidth, 70.0f, 8.0f, 1.0f, 0.33f, 0.45f, 1.0f, false);
+        drawCenteredText("NEW TABLE LAYOUT", WINDOW_WIDTH / 2.0f, 545.0f,
+                2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
+        glEnable(GL_DEPTH_TEST);
     }
 
     private static void drawLaneArt() {
@@ -482,13 +601,17 @@ public final class Main {
             }
             capsule(rail.a(), rail.b(), rail.radius());
         }
+        for (ScoringRail obstacle : simulation.obstacles()) {
+            color(0.95f, 0.75f, 0.20f, 1.0f);
+            capsule(obstacle.rail().a(), obstacle.rail().b(), obstacle.rail().radius() + 2.0f);
+        }
         if (simulation.launcherGateClosed()) {
-            color(0.02f, 0.10f, 0.12f, 1.0f);
-            capsule(new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.LANE_DIVIDER_TOP),
-                new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.WALL_TOP), 6.0f);
-            color(0.30f, 0.88f, 0.80f, 1.0f);
-            capsule(new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.LANE_DIVIDER_TOP),
-                new Vec2(GameSimulation.LANE_DIVIDER_X, GameSimulation.WALL_TOP), 4.0f);
+            for (Rail rail : simulation.launcherGate()) {
+                color(0.02f, 0.10f, 0.12f, 1.0f);
+                capsule(rail.a(), rail.b(), rail.radius() + 2.0f);
+                color(0.30f, 0.88f, 0.80f, 1.0f);
+                capsule(rail.a(), rail.b(), rail.radius());
+            }
         }
     }
 
@@ -507,7 +630,25 @@ public final class Main {
             circle(bumper.x(), bumper.y(), 19.0f);
             color(0.38f + 0.50f * glow, 0.16f + 0.40f * glow, 0.04f + 0.10f * glow, 1.0f);
             circle(bumper.x(), bumper.y(), 9.0f);
+            drawText(Integer.toString(simulation.bumperValue(index)),
+                    bumper.x() - 7.0f, bumper.y() - 7.0f, 1.5f,
+                    0.12f, 0.08f, 0.02f, 1.0f);
         }
+    }
+
+    private static void drawPointPowerUp(GameSimulation simulation) {
+        Vec2 powerUp = simulation.pointPowerUp();
+        if (powerUp == null) {
+            return;
+        }
+        color(1.0f, 0.85f, 0.30f, 0.18f);
+        circle(powerUp.x(), powerUp.y(), 29.0f);
+        color(0.95f, 0.70f, 0.12f, 1.0f);
+        circle(powerUp.x(), powerUp.y(), 18.0f);
+        color(0.30f, 0.12f, 0.02f, 1.0f);
+        circle(powerUp.x(), powerUp.y(), 13.0f);
+        drawNumber(25, 2, powerUp.x(), powerUp.y() - 2.0f,
+                6.0f, 9.0f, 1.5f, 1.0f, 0.90f, 0.45f, 1.0f, false);
     }
 
     private static void drawFlippers(GameSimulation simulation) {
@@ -556,12 +697,6 @@ public final class Main {
         }
         color(0.85f, 0.30f, 0.12f, 1.0f);
         rect(x - 14.0f, headBottom, x + 14.0f, headTop);
-    }
-
-    // ------------------------------------------------------------------ HUD
-
-    private static void drawHud(GameSimulation simulation, float centerX) {
-        drawText("A/D FLIPPERS   SPACE LAUNCH", 125.0f, 115.0f, 2.0f, 0.48f, 0.68f, 0.72f, 1.0f);
     }
 
     private static void drawPowerMeter(GameSimulation simulation) {
@@ -638,6 +773,19 @@ public final class Main {
         }
     }
 
+    private static void drawCenteredText(String text, float centerX, float y, float scale,
+                                         float r, float g, float b, float a) {
+        drawText(text, centerX - textWidth(text, scale) / 2.0f, y, scale, r, g, b, a);
+    }
+
+    private static float textWidth(String text, float scale) {
+        float width = 0.0f;
+        for (int index = 0; index < text.length(); index++) {
+            width += text.charAt(index) == ' ' ? 3.0f * scale : 6.0f * scale;
+        }
+        return Math.max(0.0f, width - scale);
+    }
+
     private static int[] glyph(char character) {
         return switch (character) {
             case 'A' -> new int[]{14, 17, 17, 31, 17, 17, 17};
@@ -665,9 +813,16 @@ public final class Main {
             case 'X' -> new int[]{17, 17, 10, 4, 10, 17, 17};
             case 'Y' -> new int[]{17, 17, 10, 4, 4, 4, 4};
             case 'Z' -> new int[]{31, 1, 2, 4, 8, 16, 31};
+            case '0' -> new int[]{14, 17, 19, 21, 25, 17, 14};
+            case '1' -> new int[]{4, 12, 4, 4, 4, 4, 14};
             case '2' -> new int[]{14, 17, 1, 2, 4, 8, 31};
             case '3' -> new int[]{30, 1, 1, 14, 1, 1, 30};
+            case '4' -> new int[]{2, 6, 10, 18, 31, 2, 2};
             case '5' -> new int[]{31, 16, 16, 30, 1, 1, 30};
+            case '6' -> new int[]{14, 16, 16, 30, 17, 17, 14};
+            case '7' -> new int[]{31, 1, 2, 4, 8, 8, 8};
+            case '8' -> new int[]{14, 17, 17, 14, 17, 17, 14};
+            case '9' -> new int[]{14, 17, 17, 15, 1, 1, 14};
             case ' ' -> new int[]{0, 0, 0, 0, 0, 0, 0};
             case ',' -> new int[]{0, 0, 0, 0, 0, 4, 8};
             case '.' -> new int[]{0, 0, 0, 0, 0, 6, 6};
@@ -712,23 +867,6 @@ public final class Main {
         glEnd();
     }
 
-    private static void drawRing(float cx, float cy, float radius, float thickness,
-                                 float r, float g, float b, float a) {
-        int segments = Math.max(32, (int) (radius * 2.0f));
-        float inner = radius - thickness / 2.0f;
-        float outer = radius + thickness / 2.0f;
-        color(r, g, b, a);
-        glBegin(GL_QUAD_STRIP);
-        for (int index = 0; index <= segments; index++) {
-            double angle = Math.PI * 2.0 * index / segments;
-            float cos = (float) Math.cos(angle);
-            float sin = (float) Math.sin(angle);
-            glVertex2f(cx + cos * inner, cy + sin * inner);
-            glVertex2f(cx + cos * outer, cy + sin * outer);
-        }
-        glEnd();
-    }
-
     private static void capsule(Vec2 a, Vec2 b, float radius) {
         Vec2 axis = b.subtract(a);
         float length = axis.length();
@@ -754,12 +892,4 @@ public final class Main {
         glEnd();
     }
 
-    private static void insertLight(float x, float y, float radius, float r, float g, float b) {
-        color(0.01f, 0.06f, 0.08f, 1.0f);
-        circle(x, y, radius + 3.0f);
-        color(r * 0.45f, g * 0.45f, b * 0.45f, 1.0f);
-        circle(x, y, radius);
-        color(r, g, b, 0.55f);
-        circle(x, y, radius * 0.45f);
-    }
 }

@@ -29,9 +29,10 @@ developer assistance:
 - Reach game over and reset the game.
 - Understand the controls from the game documentation.
 
-Features such as additional tables, power-ups, progression, game modes,
-multiplayer, and advanced visual effects are deferred until this checklist is
-reliable.
+Features such as additional tables, game modes, multiplayer, and advanced
+visual effects are deferred until this checklist is reliable. The current
+prototype includes scoring progression, generated table layouts, and a point
+power-up.
 
 Gameplay sound effects are generated at runtime, so no separate audio files are
 required. If the operating system has no available audio line, the game
@@ -119,6 +120,7 @@ Each package must be built on its target operating system because LWJGL includes
 - `X`: nudge the table right
 - `R`: reset the game and return the ball to the launcher
 - `M`: return to the main menu after game over
+- `N`: development shortcut to qualify for the next level
 - `Escape`: close the game window
 
 ## Troubleshooting
