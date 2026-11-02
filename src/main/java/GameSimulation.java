@@ -49,9 +49,6 @@ public final class GameSimulation {
     private static final float LOWER_MIDDLE_TOP = 650.0f;
     private static final float SCORING_RAIL_RADIUS = 5.0f;
     private static final float SCORING_RAIL_CLEARANCE = 6.0f;
-    private static final float POWER_UP_RADIUS = 18.0f;
-    private static final int POWER_UP_BUMPER_HIT_REQUIREMENT = 10;
-    private static final int POINT_POWER_UP_VALUE = 25;
     private static final int STARTING_BALLS = 3;
     private static final int STARTING_LEVEL = 1;
     private static final int BASE_LEVEL_TARGET = 350;
@@ -64,8 +61,6 @@ public final class GameSimulation {
     private Vec2[] bumpers;
     private int[] bumperValues;
     private float[] bumperGlow;
-    private Vec2 pointPowerUp;
-    private int bumperHitsSincePowerUp;
     private final List<Rail> rails = buildRails();
     private List<ScoringRail> obstacles;
     private boolean[] scoringRailContacts;
@@ -126,17 +121,6 @@ public final class GameSimulation {
     }
 
     private void registerBumperHit() {
-        if (pointPowerUp != null) {
-            return;
-        }
-        bumperHitsSincePowerUp++;
-        if (bumperHitsSincePowerUp >= POWER_UP_BUMPER_HIT_REQUIREMENT) {
-            Vec2 spawnedPowerUp = randomPowerUpPosition(new Random());
-            if (spawnedPowerUp != null) {
-                pointPowerUp = spawnedPowerUp;
-                bumperHitsSincePowerUp = 0;
-            }
-        }
     }
 
     private List<Rail> buildRails() {
@@ -225,8 +209,6 @@ public final class GameSimulation {
             bumpers[index] = randomBumperPosition(random, index);
             bumperValues[index] = 15 + random.nextInt(4) * 5;
         }
-        pointPowerUp = null;
-        bumperHitsSincePowerUp = 0;
 
         List<ScoringRail> generated = new ArrayList<>();
         int obstacleCount = Math.min(level - 1, 4);
@@ -347,51 +329,6 @@ public final class GameSimulation {
         return true;
     }
 
-    private Vec2 randomPowerUpPosition(Random random) {
-        for (int attempt = 0; attempt < 100; attempt++) {
-            Vec2 candidate = new Vec2(100.0f + random.nextFloat() * 420.0f,
-                    430.0f + random.nextFloat() * 420.0f);
-            if (isPowerUpPositionAvailable(candidate)) {
-                return candidate;
-            }
-        }
-        float spacing = BUMPER_RADIUS + POWER_UP_RADIUS + 4.0f;
-        for (float y = 430.0f; y <= 850.0f; y += spacing) {
-            for (float x = 100.0f; x <= 520.0f; x += spacing) {
-                Vec2 candidate = new Vec2(x, y);
-                if (isPowerUpPositionAvailable(candidate)) {
-                    return candidate;
-                }
-            }
-        }
-        return null;
-    }
-
-    private boolean isPowerUpPositionAvailable(Vec2 candidate) {
-        float bumperSpacing = BUMPER_RADIUS + POWER_UP_RADIUS + 4.0f;
-        for (Vec2 bumper : bumpers) {
-            if (candidate.subtract(bumper).lengthSquared() < bumperSpacing * bumperSpacing) {
-                return false;
-            }
-        }
-        float channelSpacing = POWER_UP_RADIUS + RAIL_RADIUS + 6.0f;
-        for (Rail rail : rails) {
-            if (rail.isGuideChannel()
-                    && candidate.subtract(rail.closestPoint(candidate)).lengthSquared()
-                    < channelSpacing * channelSpacing) {
-                return false;
-            }
-        }
-        for (ScoringRail obstacle : obstacles) {
-            float obstacleSpacing = POWER_UP_RADIUS + obstacle.rail().radius() + 6.0f;
-            if (candidate.subtract(obstacle.rail().closestPoint(candidate)).lengthSquared()
-                    < obstacleSpacing * obstacleSpacing) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public void update(float deltaSeconds, InputState input) {
         float delta = Math.min(Math.max(deltaSeconds, 0.0f), 0.033f);
         updateNudge(delta, input);
@@ -450,7 +387,6 @@ public final class GameSimulation {
             }
         }
         collideWithBumpers();
-        collideWithPointPowerUp();
         leftFlipper.collide(ball);
         rightFlipper.collide(ball);
         limitSpeed();
@@ -477,8 +413,6 @@ public final class GameSimulation {
         launcherPower = 0.0f;
         nudgeCooldown = 0.0f;
         stationaryTime = 0.0f;
-        pointPowerUp = null;
-        bumperHitsSincePowerUp = 0;
         score = 0;
         totalScore = 0;
         level = STARTING_LEVEL;
@@ -626,18 +560,6 @@ public final class GameSimulation {
         }
     }
 
-    private void collideWithPointPowerUp() {
-        if (pointPowerUp == null) {
-            return;
-        }
-        float minimumDistance = ball.radius() + POWER_UP_RADIUS;
-        if (ball.position().subtract(pointPowerUp).lengthSquared() < minimumDistance * minimumDistance) {
-            addScore(POINT_POWER_UP_VALUE);
-            pointPowerUp = null;
-            bumperHitsSincePowerUp = 0;
-        }
-    }
-
     public Ball ball() {
         return ball;
     }
@@ -660,14 +582,6 @@ public final class GameSimulation {
 
     public float bumperGlow(int index) {
         return bumperGlow[index];
-    }
-
-    public Vec2 pointPowerUp() {
-        return pointPowerUp;
-    }
-
-    public int bumperHitsSincePowerUp() {
-        return bumperHitsSincePowerUp;
     }
 
     public List<Rail> rails() {

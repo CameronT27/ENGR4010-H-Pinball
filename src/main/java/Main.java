@@ -57,6 +57,7 @@ import static org.lwjgl.opengl.GL11.glClear;
 import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glColor4f;
 import static org.lwjgl.opengl.GL11.glDisable;
+import static org.lwjgl.opengl.GL11.glDepthMask;
 import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glEnd;
 import static org.lwjgl.opengl.GL11.glFrustum;
@@ -66,6 +67,7 @@ import static org.lwjgl.opengl.GL11.glOrtho;
 import static org.lwjgl.opengl.GL11.glPopMatrix;
 import static org.lwjgl.opengl.GL11.glPushMatrix;
 import static org.lwjgl.opengl.GL11.glRotatef;
+import static org.lwjgl.opengl.GL11.glScalef;
 import static org.lwjgl.opengl.GL11.glTranslatef;
 import static org.lwjgl.opengl.GL11.glVertex2f;
 import static org.lwjgl.opengl.GL11.glVertex3f;
@@ -76,6 +78,20 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 public final class Main {
     private static final int WINDOW_WIDTH = 720;
     private static final int WINDOW_HEIGHT = 1200;
+    private static final float BOARD_BASE_WIDTH = 536.0f;
+    private static final float BOARD_BASE_HEIGHT = 430.0f;
+    private static final float BOARD_ORIGIN_X_RATIO = 360.0f / BOARD_BASE_WIDTH;
+    private static final float BOARD_ORIGIN_Y_RATIO = 825.0f / BOARD_BASE_HEIGHT;
+    private static final float BALLS_CENTER_X_RATIO = 460.0f / BOARD_BASE_WIDTH;
+    private static final float BALL_INDICATOR_Y_RATIO = 785.0f / BOARD_BASE_HEIGHT;
+    private static final float DEV_PANEL_LEFT_RATIO = 350.0f / BOARD_BASE_WIDTH;
+    private static final float DEV_PANEL_RIGHT_RATIO = 514.0f / BOARD_BASE_WIDTH;
+    private static final float DEV_PANEL_BOTTOM_RATIO = 624.0f / BOARD_BASE_HEIGHT;
+    private static final float DEV_PANEL_TOP_RATIO = 662.0f / BOARD_BASE_HEIGHT;
+    private static final float FRONT_MACHINE_LEFT_RATIO = (GameSimulation.WALL_LEFT - 20.0f) / GameSimulation.TABLE_WIDTH;
+    private static final float FRONT_MACHINE_RIGHT_RATIO = (GameSimulation.WALL_RIGHT + 20.0f) / GameSimulation.TABLE_WIDTH;
+    private static final float FRONT_MACHINE_BOTTOM_RATIO = 0.0f;
+    private static final float FRONT_MACHINE_TOP_RATIO = 0.135f;
     private static final float LEVEL_TRANSITION_SECONDS = 1.5f;
 
     // Seven-segment bit masks (a, b, c, d, e, f, g) for the digits 0-9.
@@ -240,6 +256,8 @@ public final class Main {
     // ------------------------------------------------------------------ table
 
     private static void drawTable(GameSimulation simulation) {
+        drawRoomBackground();
+
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glFrustum(-38.0, 38.0, -63.0, 63.0, 100.0, 3000.0);
@@ -247,8 +265,8 @@ public final class Main {
         glLoadIdentity();
         // Bring the cabinet closer and aim higher so the raised backbox and playfield
         // fill the portrait viewport instead of leaving unused space above the table.
-        glTranslatef(-GameSimulation.TABLE_WIDTH / 2.0f, -420.0f, -820.0f);
-        glRotatef(-50.0f, 1.0f, 0.0f, 0.0f);
+        glTranslatef(-GameSimulation.TABLE_WIDTH / 2.0f, -420.0f, -1000.0f);
+        glRotatef(-35.0f, 1.0f, 0.0f, 0.0f);
 
         drawTableSlab();
         drawCabinetDepth();
@@ -271,16 +289,15 @@ public final class Main {
         verticalGradient(left, 0, right, top, 0.02f, 0.09f, 0.13f, 0.05f, 0.27f, 0.33f);
         verticalGradient(divider, 0, right, top, 0.01f, 0.05f, 0.08f, 0.03f, 0.13f, 0.17f);
 
-        drawBackboard();
-        drawBackboardDisplay(simulation);
         drawLaneArt();
         drawRails(simulation);
         drawBumpers(simulation);
-        drawPointPowerUp(simulation);
         drawFlippers(simulation);
         drawBall(simulation);
         drawPlunger(simulation);
         drawPowerMeter(simulation);
+        drawBackboardOverlay(simulation);
+        drawFrontMachineOverlay(simulation);
 
         if (simulation.gameOver()) {
             color(0.0f, 0.0f, 0.0f, 0.62f);
@@ -293,6 +310,216 @@ public final class Main {
             drawText("M RETURN TO MENU", 205.0f, 370.0f, 3.0f, 0.95f, 0.75f, 0.20f, 1.0f);
         }
         glEnable(GL_DEPTH_TEST);
+    }
+
+    private static void drawFrontMachineOverlay(GameSimulation simulation) {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        float left = WINDOW_WIDTH * FRONT_MACHINE_LEFT_RATIO;
+        float right = WINDOW_WIDTH * FRONT_MACHINE_RIGHT_RATIO;
+        float bottom = WINDOW_HEIGHT * FRONT_MACHINE_BOTTOM_RATIO;
+        float top = WINDOW_HEIGHT * FRONT_MACHINE_TOP_RATIO;
+        float width = right - left;
+        float height = top - bottom;
+
+        color(0.06f, 0.025f, 0.018f, 1.0f);
+        rect(left, bottom, right, top);
+        color(0.28f, 0.08f, 0.025f, 1.0f);
+        rect(left, top - height * 0.16f, right, top);
+        color(0.40f, 0.14f, 0.045f, 1.0f);
+        rect(left + width * 0.02f, top - height * 0.22f,
+                right - width * 0.02f, top - height * 0.16f);
+
+        float insetLeft = WINDOW_WIDTH * 0.30f;
+        float insetRight = WINDOW_WIDTH * 0.70f;
+        float insetBottom = bottom + height * 0.25f;
+        float insetTop = bottom + height * 0.78f;
+        color(0.015f, 0.025f, 0.030f, 1.0f);
+        rect(insetLeft, insetBottom, insetRight, insetTop);
+        color(0.22f, 0.24f, 0.25f, 1.0f);
+        rect(insetLeft + 5.0f, insetTop - 5.0f, insetRight - 5.0f, insetTop);
+        color(0.02f, 0.035f, 0.04f, 1.0f);
+        rect(insetLeft + 10.0f, insetBottom + 8.0f, insetRight - 10.0f, insetTop - 8.0f);
+
+        color(0.72f, 0.48f, 0.18f, 1.0f);
+        circle(left + width * 0.08f, bottom + height * 0.50f, 5.0f);
+        circle(right - width * 0.08f, bottom + height * 0.50f, 5.0f);
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    private static void drawBackboardOverlay(GameSimulation simulation) {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+        glPushMatrix();
+
+        // Keep the board straight in screen space while sizing it as a proportion
+        // of the virtual viewport. The playfield retains the -35 degree camera.
+        float boardWidth = WINDOW_WIDTH * 0.56f;
+        float boardHeight = WINDOW_HEIGHT * 0.25f;
+        float boardCenterX = WINDOW_WIDTH * 0.50f;
+        float boardCenterY = WINDOW_HEIGHT * 0.85f;
+        float widthScale = boardWidth / BOARD_BASE_WIDTH;
+        float heightScale = boardHeight / BOARD_BASE_HEIGHT;
+        glTranslatef(boardCenterX - BOARD_BASE_WIDTH * BOARD_ORIGIN_X_RATIO * widthScale,
+                boardCenterY - BOARD_BASE_HEIGHT * BOARD_ORIGIN_Y_RATIO * heightScale, 0.0f);
+        glScalef(widthScale, heightScale, 1.0f);
+
+        float left = boardX(92.0f / BOARD_BASE_WIDTH);
+        float right = boardX(628.0f / BOARD_BASE_WIDTH);
+        float bottom = boardY(610.0f / BOARD_BASE_HEIGHT);
+        float top = boardY(1040.0f / BOARD_BASE_HEIGHT);
+
+        color(0.35f, 0.12f, 0.04f, 1.0f);
+        rect(left, bottom, right, top);
+        color(0.18f, 0.055f, 0.018f, 1.0f);
+        rect(left - 10.0f, bottom - 8.0f, left, top + 8.0f);
+        rect(right, bottom - 8.0f, right + 10.0f, top + 8.0f);
+        rect(left - 10.0f, bottom - 8.0f, right + 10.0f, bottom);
+        rect(left - 10.0f, top, right + 10.0f, top + 8.0f);
+
+        color(0.10f, 0.34f, 0.38f, 1.0f);
+        rect(left + 22.0f, bottom + 22.0f, right - 22.0f, top - 22.0f);
+
+        float centerX = boardX(360.0f / BOARD_BASE_WIDTH);
+        drawCenteredText("SCORE", centerX, boardY(980.0f / BOARD_BASE_HEIGHT), 2.8f,
+                0.60f, 0.75f, 0.78f, 1.0f);
+        drawNumber(simulation.score(), 7, centerX, boardY(930.0f / BOARD_BASE_HEIGHT),
+                48.0f, 76.0f, 8.0f,
+                0.95f, 0.75f, 0.20f, 0.95f, true);
+
+        drawText("TOTAL " + simulation.totalScore(), boardX(145.0f / BOARD_BASE_WIDTH),
+                boardY(859.0f / BOARD_BASE_HEIGHT),
+                2.1f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawText("LEVEL " + simulation.level(), boardX(465.0f / BOARD_BASE_WIDTH),
+                boardY(859.0f / BOARD_BASE_HEIGHT),
+                2.1f, 0.95f, 0.75f, 0.20f, 1.0f);
+
+        drawCenteredText("BALLS", boardX(BALLS_CENTER_X_RATIO),
+                boardY(825.0f / BOARD_BASE_HEIGHT), 2.4f,
+                0.60f, 0.75f, 0.78f, 1.0f);
+        drawText("NEXT " + simulation.nextLevelScore(), boardX(145.0f / BOARD_BASE_WIDTH),
+                boardY(825.0f / BOARD_BASE_HEIGHT),
+                1.85f, 0.85f, 0.90f, 0.92f, 1.0f);
+        for (int index = 0; index < 3; index++) {
+            float x = boardX((432.0f + index * 28.0f) / BOARD_BASE_WIDTH);
+            boolean available = index < simulation.ballsRemaining();
+            color(available ? 0.85f : 0.10f,
+                    available ? 0.88f : 0.20f,
+                    available ? 0.95f : 0.24f,
+                    0.9f);
+            circle(x, boardY(BALL_INDICATOR_Y_RATIO), 8.0f);
+        }
+
+        drawText("A/D OR ARROWS", boardX(145.0f / BOARD_BASE_WIDTH),
+                boardY(791.0f / BOARD_BASE_HEIGHT),
+                1.85f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawText("SPACE LAUNCH", boardX(145.0f / BOARD_BASE_WIDTH),
+                boardY(757.0f / BOARD_BASE_HEIGHT),
+                1.85f, 0.85f, 0.90f, 0.92f, 1.0f);
+        color(0.04f, 0.22f, 0.27f, 0.95f);
+        rect(boardX(DEV_PANEL_LEFT_RATIO), boardY(DEV_PANEL_BOTTOM_RATIO),
+                boardX(DEV_PANEL_RIGHT_RATIO), boardY(DEV_PANEL_TOP_RATIO));
+        drawCenteredText("N DEV: QUALIFY LEVEL", boardX(432.0f / BOARD_BASE_WIDTH),
+                boardY(660.0f / BOARD_BASE_HEIGHT),
+                1.35f, 0.55f, 0.95f, 0.85f, 1.0f);
+        if (simulation.stationaryWarning()) {
+            drawText("WARNING: BALL WILL DRAIN", boardX(350.0f / BOARD_BASE_WIDTH),
+                    boardY(672.0f / BOARD_BASE_HEIGHT),
+                    1.35f, 1.0f, 0.25f, 0.30f, 1.0f);
+            drawText("NUDGE OR MOVE THE BALL", boardX(350.0f / BOARD_BASE_WIDTH),
+                    boardY(638.0f / BOARD_BASE_HEIGHT),
+                    1.25f, 1.0f, 0.75f, 0.25f, 1.0f);
+        }
+        glPopMatrix();
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    private static float boardX(float ratio) {
+        return ratio * BOARD_BASE_WIDTH;
+    }
+
+    private static float boardY(float ratio) {
+        return ratio * BOARD_BASE_HEIGHT;
+    }
+
+    private static void drawRoomBackground() {
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(false);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        // A softly lit white-gray brick wall fills the space behind the raised backbox.
+        verticalGradient(0, 360.0f, WINDOW_WIDTH, WINDOW_HEIGHT,
+                0.58f, 0.59f, 0.58f, 0.82f, 0.83f, 0.82f);
+        color(0.38f, 0.39f, 0.38f, 1.0f);
+        rect(0.0f, 348.0f, WINDOW_WIDTH, 365.0f);
+        color(0.34f, 0.35f, 0.34f, 0.9f);
+        rect(0.0f, 365.0f, WINDOW_WIDTH, 368.0f);
+        for (int row = 0; row < 12; row++) {
+            float y = 390.0f + row * 68.0f;
+            float offset = row % 2 == 0 ? -70.0f : 5.0f;
+            for (int column = 0; column < 6; column++) {
+                float x = offset + column * 150.0f;
+                float shade = column % 3 == 0 ? 0.74f : 0.78f;
+                color(shade, shade + 0.01f, shade + 0.01f, 1.0f);
+                rect(x + 3.0f, y + 3.0f, x + 147.0f, y + 65.0f);
+                color(0.48f, 0.49f, 0.48f, 0.35f);
+                rect(x + 4.0f, y + 4.0f, x + 145.0f, y + 7.0f);
+            }
+        }
+        color(0.40f, 0.41f, 0.40f, 0.95f);
+        for (int y = 386; y <= 1200; y += 68) {
+            rect(0.0f, y, WINDOW_WIDTH, y + 4.0f);
+        }
+        for (int row = 0; row < 12; row++) {
+            float offset = row % 2 == 0 ? 80.0f : 5.0f;
+            for (int column = 0; column < 6; column++) {
+                float x = offset + column * 150.0f;
+                rect(x, 390.0f + row * 68.0f, x + 4.0f, 454.0f + row * 68.0f);
+            }
+        }
+
+        // Dark gray concrete floor with subtle slab variation and seams.
+        verticalGradient(0, 0, WINDOW_WIDTH, 360.0f,
+                0.10f, 0.11f, 0.12f, 0.22f, 0.23f, 0.24f);
+        for (int row = 0; row < 5; row++) {
+            float y = row * 78.0f;
+            float shade = row % 2 == 0 ? 0.14f : 0.17f;
+            color(shade, shade + 0.01f, shade + 0.02f, 0.28f);
+            rect(0.0f, y, WINDOW_WIDTH, y + 74.0f);
+        }
+        color(0.045f, 0.05f, 0.055f, 0.8f);
+        for (int y = 76; y < 360; y += 78) {
+            rect(0.0f, y, WINDOW_WIDTH, y + 4.0f);
+        }
+        for (int x = -120; x < WINDOW_WIDTH + 240; x += 210) {
+            color(0.045f, 0.05f, 0.055f, 0.65f);
+            glBegin(GL_QUADS);
+            glVertex2f(x, 0.0f);
+            glVertex2f(x + 4.0f, 0.0f);
+            glVertex2f(x + 34.0f, 360.0f);
+            glVertex2f(x + 30.0f, 360.0f);
+            glEnd();
+        }
+        color(0.32f, 0.33f, 0.34f, 0.14f);
+        for (int row = 0; row < 5; row++) {
+            float y = row * 78.0f + 70.0f;
+            rect(0.0f, y, WINDOW_WIDTH, y + 2.0f);
+        }
+
+        glDepthMask(true);
     }
 
     private static void drawTableSlab() {
@@ -380,7 +607,9 @@ public final class Main {
         float right = GameSimulation.WALL_RIGHT + 35.0f;
         float tableTop = GameSimulation.WALL_TOP;
         float panelBottom = -8.0f;
-        float panelTop = 300.0f;
+        float panelTop = 360.0f;
+        float panelTopLeft = left - 34.0f;
+        float panelTopRight = right + 34.0f;
         float frontY = tableTop + 8.0f;
         float backY = tableTop + 42.0f;
 
@@ -389,26 +618,26 @@ public final class Main {
         // Front face of the upright cabinet.
         glVertex3f(left, frontY, panelBottom);
         glVertex3f(right, frontY, panelBottom);
-        glVertex3f(right, frontY, panelTop);
-        glVertex3f(left, frontY, panelTop);
+        glVertex3f(panelTopRight, frontY, panelTop);
+        glVertex3f(panelTopLeft, frontY, panelTop);
         // Cabinet thickness.
         glVertex3f(left, backY, panelBottom);
         glVertex3f(left, frontY, panelBottom);
-        glVertex3f(left, frontY, panelTop);
-        glVertex3f(left, backY, panelTop);
+        glVertex3f(panelTopLeft, frontY, panelTop);
+        glVertex3f(panelTopLeft, backY, panelTop);
         glVertex3f(right, frontY, panelBottom);
         glVertex3f(right, backY, panelBottom);
-        glVertex3f(right, backY, panelTop);
-        glVertex3f(right, frontY, panelTop);
+        glVertex3f(panelTopRight, backY, panelTop);
+        glVertex3f(panelTopRight, frontY, panelTop);
         glVertex3f(left, backY, panelBottom);
         glVertex3f(right, backY, panelBottom);
-        glVertex3f(right, backY, panelTop);
-        glVertex3f(left, backY, panelTop);
+        glVertex3f(panelTopRight, backY, panelTop);
+        glVertex3f(panelTopLeft, backY, panelTop);
         // Top and bottom caps.
-        glVertex3f(left, frontY, panelTop);
-        glVertex3f(right, frontY, panelTop);
-        glVertex3f(right, backY, panelTop);
-        glVertex3f(left, backY, panelTop);
+        glVertex3f(panelTopLeft, frontY, panelTop);
+        glVertex3f(panelTopRight, frontY, panelTop);
+        glVertex3f(panelTopRight, backY, panelTop);
+        glVertex3f(panelTopLeft, backY, panelTop);
         glVertex3f(left, frontY, panelBottom);
         glVertex3f(left, backY, panelBottom);
         glVertex3f(right, backY, panelBottom);
@@ -433,62 +662,9 @@ public final class Main {
         // Display face inset into the front of the cabinet.
         glVertex3f(left + 22.0f, frontY - 0.5f, panelBottom + 22.0f);
         glVertex3f(right - 22.0f, frontY - 0.5f, panelBottom + 22.0f);
-        glVertex3f(right - 22.0f, frontY - 0.5f, panelTop - 22.0f);
-        glVertex3f(left + 22.0f, frontY - 0.5f, panelTop - 22.0f);
+        glVertex3f(panelTopRight - 22.0f, frontY - 0.5f, panelTop - 22.0f);
+        glVertex3f(panelTopLeft + 22.0f, frontY - 0.5f, panelTop - 22.0f);
         glEnd();
-    }
-
-    private static void drawBackboardDisplay(GameSimulation simulation) {
-        float centerX = GameSimulation.TABLE_WIDTH / 2.0f;
-        float panelBottom = -8.0f;
-        float frontY = GameSimulation.WALL_TOP + 8.0f;
-
-        glPushMatrix();
-        glTranslatef(0.0f, frontY - 1.0f, panelBottom);
-        glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-
-        drawText("SCORE", centerX - 30.0f, 250.0f, 2.0f,
-                0.60f, 0.75f, 0.78f, 1.0f);
-        drawNumber(simulation.score(), 6, centerX, 190.0f, 30.0f, 48.0f, 6.0f,
-                0.95f, 0.75f, 0.20f, 0.95f, true);
-
-        drawText("TOTAL " + simulation.totalScore(), 65.0f, 145.0f,
-                1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
-        drawText("POWER-UP " + simulation.bumperHitsSincePowerUp() + "/10",
-                65.0f, 115.0f, 1.55f, 0.95f, 0.75f, 0.20f, 1.0f);
-        drawText("LEVEL " + simulation.level(), 425.0f, 145.0f,
-                1.8f, 0.95f, 0.75f, 0.20f, 1.0f);
-
-        drawText("BALLS", 500.0f, 250.0f, 1.8f,
-                0.60f, 0.75f, 0.78f, 1.0f);
-        drawText("NEXT " + simulation.nextLevelScore(), 485.0f, 115.0f,
-                1.55f, 0.85f, 0.90f, 0.92f, 1.0f);
-        for (int index = 0; index < 3; index++) {
-            float x = 515.0f + index * 24.0f;
-            boolean available = index < simulation.ballsRemaining();
-            color(available ? 0.85f : 0.10f,
-                    available ? 0.88f : 0.20f,
-                    available ? 0.95f : 0.24f,
-                    0.9f);
-            circle(x, 215.0f, 6.0f);
-        }
-
-        drawText("A/D OR ARROWS", 65.0f, 75.0f,
-                1.55f, 0.85f, 0.90f, 0.92f, 1.0f);
-        drawText("SPACE LAUNCH", 65.0f, 48.0f,
-                1.55f, 0.85f, 0.90f, 0.92f, 1.0f);
-        color(0.04f, 0.22f, 0.27f, 0.95f);
-        rect(445.0f, 42.0f, 615.0f, 72.0f);
-        drawCenteredText("N DEV: QUALIFY LEVEL", 530.0f, 51.0f,
-                1.15f, 0.55f, 0.95f, 0.85f, 1.0f);
-        if (simulation.stationaryWarning()) {
-            drawText("WARNING: BALL WILL DRAIN", 300.0f, 75.0f,
-                    1.35f, 1.0f, 0.25f, 0.30f, 1.0f);
-            drawText("NUDGE OR MOVE THE BALL", 300.0f, 48.0f,
-                    1.25f, 1.0f, 0.75f, 0.25f, 1.0f);
-        }
-
-        glPopMatrix();
     }
 
     private static void drawIntroScreen(GameSimulation simulation) {
@@ -634,21 +810,6 @@ public final class Main {
                     bumper.x() - 7.0f, bumper.y() - 7.0f, 1.5f,
                     0.12f, 0.08f, 0.02f, 1.0f);
         }
-    }
-
-    private static void drawPointPowerUp(GameSimulation simulation) {
-        Vec2 powerUp = simulation.pointPowerUp();
-        if (powerUp == null) {
-            return;
-        }
-        color(1.0f, 0.85f, 0.30f, 0.18f);
-        circle(powerUp.x(), powerUp.y(), 29.0f);
-        color(0.95f, 0.70f, 0.12f, 1.0f);
-        circle(powerUp.x(), powerUp.y(), 18.0f);
-        color(0.30f, 0.12f, 0.02f, 1.0f);
-        circle(powerUp.x(), powerUp.y(), 13.0f);
-        drawNumber(25, 2, powerUp.x(), powerUp.y() - 2.0f,
-                6.0f, 9.0f, 1.5f, 1.0f, 0.90f, 0.45f, 1.0f, false);
     }
 
     private static void drawFlippers(GameSimulation simulation) {
