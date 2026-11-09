@@ -6,12 +6,16 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_M;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_N;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_R;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_B;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_UP;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_X;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
@@ -130,6 +134,11 @@ public final class Main {
             boolean enterWasPressed = false;
             boolean menuWasPressed = false;
             boolean devLevelWasPressed = false;
+            boolean shopUpWasPressed = false;
+            boolean shopDownWasPressed = false;
+            boolean shopBuyWasPressed = false;
+            boolean shopRefreshWasPressed = false;
+            boolean shopLeaveWasPressed = false;
             boolean showingIntro = true;
             boolean showingLevelTransition = false;
             float levelTransitionTime = 0.0f;
@@ -157,6 +166,33 @@ public final class Main {
                     simulation.qualifyForNextLevel();
                 }
                 devLevelWasPressed = devLevelPressed;
+                boolean shopUpPressed = isPressed(window, GLFW_KEY_UP);
+                boolean shopDownPressed = isPressed(window, GLFW_KEY_DOWN);
+                boolean shopBuyPressed = isPressed(window, GLFW_KEY_B);
+                boolean shopRefreshPressed = isPressed(window, GLFW_KEY_F);
+                boolean shopLeavePressed = isPressed(window, GLFW_KEY_ENTER);
+                if (!showingIntro && simulation.shopOpen()) {
+                    if (shopUpPressed && !shopUpWasPressed) {
+                        simulation.moveShopSelection(-1);
+                    }
+                    if (shopDownPressed && !shopDownWasPressed) {
+                        simulation.moveShopSelection(1);
+                    }
+                    if (shopBuyPressed && !shopBuyWasPressed) {
+                        simulation.buySelectedPerk();
+                    }
+                    if (shopRefreshPressed && !shopRefreshWasPressed) {
+                        simulation.refreshShop();
+                    }
+                    if (shopLeavePressed && !shopLeaveWasPressed) {
+                        simulation.leaveShop();
+                    }
+                }
+                shopUpWasPressed = shopUpPressed;
+                shopDownWasPressed = shopDownPressed;
+                shopBuyWasPressed = shopBuyPressed;
+                shopRefreshWasPressed = shopRefreshPressed;
+                shopLeaveWasPressed = shopLeavePressed;
                 boolean enterPressed = isPressed(window, GLFW_KEY_ENTER);
                 if (showingIntro && enterPressed && !enterWasPressed) {
                     showingIntro = false;
@@ -170,13 +206,11 @@ public final class Main {
                 input.setNudgeLeft(isPressed(window, GLFW_KEY_Z));
                 input.setNudgeRight(isPressed(window, GLFW_KEY_X));
 
-                if (!showingIntro && !showingLevelTransition) {
+                if (!showingIntro && simulation.shopOpen()) {
+                    glfwSetWindowTitle(window, "2.5D Pinball | SHOP | Coins: " + simulation.coins());
+                } else if (!showingIntro && !showingLevelTransition) {
                     simulation.update(deltaSeconds, input);
                     audio.update(simulation, input);
-                    if (simulation.consumeLevelUpEvent()) {
-                        showingLevelTransition = true;
-                        levelTransitionTime = LEVEL_TRANSITION_SECONDS;
-                    }
                     input.advanceFrame();
                     glfwSetWindowTitle(window, "2.5D Pinball | Score: " + simulation.score()
                             + " | Balls: " + simulation.ballsRemaining()
@@ -198,6 +232,8 @@ public final class Main {
                     drawIntroScreen(simulation);
                 } else if (showingLevelTransition) {
                     drawLevelTransition(simulation.table(), simulation.level());
+                } else if (simulation.shopOpen()) {
+                    drawShopScreen(simulation);
                 } else {
                     drawTable(simulation);
                 }
@@ -434,19 +470,28 @@ public final class Main {
         drawText("TOTAL " + simulation.totalScore(), boardX(145.0f / BOARD_BASE_WIDTH),
                 boardY(859.0f / BOARD_BASE_HEIGHT),
                 2.1f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawText("COINS " + simulation.coins(), boardX(145.0f / BOARD_BASE_WIDTH),
+                boardY(825.0f / BOARD_BASE_HEIGHT),
+                1.85f, 0.95f, 0.85f, 0.30f, 1.0f);
         drawText("TABLE " + simulation.table() + "  LV " + simulation.level(),
                 boardX(425.0f / BOARD_BASE_WIDTH),
                 boardY(859.0f / BOARD_BASE_HEIGHT),
                 2.1f, 0.95f, 0.75f, 0.20f, 1.0f);
+        drawText("COMBO " + simulation.comboHits() + "  x" + simulation.comboMultiplier(),
+                boardX(425.0f / BOARD_BASE_WIDTH),
+                boardY(825.0f / BOARD_BASE_HEIGHT),
+                1.65f, 0.95f, 0.85f, 0.30f, 1.0f);
 
         drawCenteredText("BALLS", boardX(BALLS_CENTER_X_RATIO),
-                boardY(825.0f / BOARD_BASE_HEIGHT), 2.4f,
+                boardY(791.0f / BOARD_BASE_HEIGHT), 2.4f,
                 0.60f, 0.75f, 0.78f, 1.0f);
         drawText("NEXT " + simulation.nextLevelScore(), boardX(145.0f / BOARD_BASE_WIDTH),
-                boardY(825.0f / BOARD_BASE_HEIGHT),
+                boardY(757.0f / BOARD_BASE_HEIGHT),
                 1.85f, 0.85f, 0.90f, 0.92f, 1.0f);
-        for (int index = 0; index < 3; index++) {
-            float x = boardX((432.0f + index * 28.0f) / BOARD_BASE_WIDTH);
+        float ballSpacing = 24.0f;
+        float ballStart = 460.0f - (simulation.lifeCount() - 1) * ballSpacing * 0.5f;
+        for (int index = 0; index < simulation.lifeCount(); index++) {
+            float x = boardX((ballStart + index * ballSpacing) / BOARD_BASE_WIDTH);
             boolean available = index < simulation.ballsRemaining();
             color(available ? 0.85f : 0.10f,
                     available ? 0.88f : 0.20f,
@@ -456,10 +501,10 @@ public final class Main {
         }
 
         drawText("A/D OR ARROWS", boardX(145.0f / BOARD_BASE_WIDTH),
-                boardY(791.0f / BOARD_BASE_HEIGHT),
+                boardY(720.0f / BOARD_BASE_HEIGHT),
                 1.85f, 0.85f, 0.90f, 0.92f, 1.0f);
         drawText("SPACE LAUNCH", boardX(145.0f / BOARD_BASE_WIDTH),
-                boardY(757.0f / BOARD_BASE_HEIGHT),
+                boardY(685.0f / BOARD_BASE_HEIGHT),
                 1.85f, 0.85f, 0.90f, 0.92f, 1.0f);
         color(0.04f, 0.22f, 0.27f, 0.95f);
         rect(boardX(DEV_PANEL_LEFT_RATIO), boardY(DEV_PANEL_BOTTOM_RATIO),
@@ -777,6 +822,82 @@ public final class Main {
         drawCenteredText("NEW TABLE LAYOUT", WINDOW_WIDTH / 2.0f, 545.0f,
                 2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
         glEnable(GL_DEPTH_TEST);
+    }
+
+    private static void drawShopScreen(GameSimulation simulation) {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        verticalGradient(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
+                0.02f, 0.06f, 0.10f, 0.06f, 0.24f, 0.30f);
+        color(0.01f, 0.04f, 0.06f, 0.96f);
+        rect(55.0f, 55.0f, WINDOW_WIDTH - 55.0f, WINDOW_HEIGHT - 55.0f);
+        drawCenteredText("LEVEL COMPLETE - SHOP", WINDOW_WIDTH / 2.0f, 735.0f,
+                4.0f, 1.0f, 0.78f, 0.24f, 1.0f);
+        drawCenteredText("COINS " + simulation.coins(), WINDOW_WIDTH / 2.0f, 680.0f,
+                2.8f, 0.95f, 0.85f, 0.30f, 1.0f);
+
+        int[] options = simulation.shopOptions();
+        for (int index = 0; index < options.length; index++) {
+            float left = 92.0f;
+            float right = WINDOW_WIDTH - 92.0f;
+            float top = 565.0f - index * 132.0f;
+            float bottom = top - 108.0f;
+            color(index == simulation.shopSelection() ? 0.16f : 0.06f,
+                    index == simulation.shopSelection() ? 0.30f : 0.13f,
+                    index == simulation.shopSelection() ? 0.32f : 0.17f, 1.0f);
+            rect(left, bottom, right, top);
+            drawText(shopName(options[index]), left + 22.0f, top - 38.0f,
+                    2.0f, 0.95f, 0.90f, 0.35f, 1.0f);
+            drawText(shopDescription(options[index], simulation), left + 22.0f,
+                    top - 70.0f, 1.45f, 0.85f, 0.90f, 0.92f, 1.0f);
+            int cost = options[index] < 0 ? -1 : simulation.perkCost(options[index]);
+            String costText = cost < 0 ? "MAXED" : "COST " + cost;
+            drawText(costText, right - 145.0f, top - 38.0f,
+                    1.8f, cost >= 0 && cost <= simulation.coins() ? 0.35f : 0.55f,
+                    cost >= 0 && cost <= simulation.coins() ? 1.0f : 0.45f,
+                    0.45f, 1.0f);
+            String levelText = options[index] < 0 ? "BOUGHT" : "LV " + simulation.perkLevel(options[index]);
+            drawText(levelText, right - 145.0f,
+                    top - 72.0f, 1.45f, 0.70f, 0.78f, 0.80f, 1.0f);
+        }
+
+        drawCenteredText("UP/DOWN SELECT    B BUY    F REFRESH (" + simulation.shopRefreshCost()
+                        + " COINS)    ENTER LEAVE",
+                WINDOW_WIDTH / 2.0f, 130.0f, 1.65f, 0.85f, 0.90f, 0.92f, 1.0f);
+        drawCenteredText("Combo: x" + simulation.comboMultiplier() + " / x"
+                        + simulation.comboCapValue() + "    Window: "
+                        + String.format("%.1fs", simulation.comboWindowValue())
+                        + "    Bumper bonus: +" + simulation.bumperBonusPercent()
+                        + "%    Extra balls: " + simulation.extraBallLevel(),
+                WINDOW_WIDTH / 2.0f, 85.0f, 1.5f, 0.75f, 0.85f, 0.88f, 1.0f);
+        glEnable(GL_DEPTH_TEST);
+    }
+
+    private static String shopName(int perk) {
+        return switch (perk) {
+            case 0 -> "COMBO";
+            case 1 -> "COMBO WINDOW";
+            case 2 -> "BUMPER BONUS";
+            case 3 -> "EXTRA BALL";
+            case -1 -> "PURCHASED";
+            default -> "UNKNOWN";
+        };
+    }
+
+    private static String shopDescription(int perk, GameSimulation simulation) {
+        return switch (perk) {
+            case 0 -> "Raise combo cap to x" + Math.min(5, simulation.comboCapValue() + 1);
+            case 1 -> "Add 1 second to combo timer";
+            case 2 -> "Add 15% to bumper points";
+            case 3 -> "Add one ball (max 2 buys)";
+            case -1 -> "Refresh to see a new offer";
+            default -> "";
+        };
     }
 
     private static void drawLaneArt() {

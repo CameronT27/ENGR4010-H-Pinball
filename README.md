@@ -138,6 +138,29 @@ Each package must be built on its target operating system because LWJGL includes
 The flippers, launcher, nudge controls, scoring, sound feedback, ball count,
 and game-over behavior are shared across all three tables.
 
+## Between-level shop
+
+Completing a level opens a paused shop. The current-level score earns one coin
+per 100 points (remainder discarded), up to a 99-coin wallet. Coins and
+purchased perks persist across table changes; `R` starts a genuinely new game
+and clears them.
+
+- `Up` / `Down`: select an offer
+- `B`: buy the selected perk when affordable
+- `F`: refresh the three offers; the cost is 1, then 2, 4, 8, and so on
+- `Enter`: leave the shop and start the next table
+
+The shop offers Combo Multiplier (cap up to x5), Longer Combo Window (three
+upgrades), Bumper Bonus (three +15% upgrades), and Extra Ball (two purchases).
+Combo multiplier increases on consecutive bumper hits and resets when its
+timer expires. The current combo multiplier and coin balance are shown during
+gameplay and in the shop. The HUD also shows the number of consecutive bumper
+hits in the active combo. Buying an offer removes it from the current shop;
+refreshing or completing another level supplies new offers.
+
+The backboard displays up to five ball indicators, including balls purchased
+from the Extra Ball perk.
+
 ## Troubleshooting
 
 If Java is not found, install a Java 25 JDK and verify it with `java -version`. If Gradle cannot download dependencies, check the internet connection and run the launch command again.

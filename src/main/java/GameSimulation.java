@@ -54,6 +54,12 @@ public final class GameSimulation {
     private static final int STARTING_LEVEL = 1;
     private static final int BASE_LEVEL_TARGET = 350;
     private static final int TABLE_COUNT = 3;
+    private static final int MAX_COINS = 99;
+    private static final float BASE_COMBO_WINDOW = 2.5f;
+    private static final int MAX_COMBO_UPGRADES = 4;
+    private static final int MAX_WINDOW_UPGRADES = 3;
+    private static final int MAX_BONUS_UPGRADES = 3;
+    private static final int MAX_EXTRA_BALLS = 2;
 
     private final Ball ball = new Ball(new Vec2(LAUNCHER_X, LAUNCHER_REST_Y), 14.0f);
     private final Flipper leftFlipper = new Flipper(new Vec2(PLAYFIELD_CENTER_X - FLIPPER_PIVOT_OFFSET, FLIPPER_PIVOT_Y),
@@ -93,8 +99,147 @@ public final class GameSimulation {
     private boolean orbitActive;
     private float orbitDistance;
     private boolean orbitScored;
+    private int coins;
+    private boolean shopOpen;
+    private int shopSelection;
+    private int shopRefreshCost = 1;
+    private int[] shopOptions = {0, 1, 2};
+    private int comboUpgradeLevel;
+    private int comboWindowUpgradeLevel;
+    private int bumperBonusLevel;
+    private int extraBallLevel;
+    private int comboMultiplier = 1;
+    private int comboHits;
+    private float comboTimer;
 
     public GameSimulation() {
+        generateLevelLayout();
+    }
+
+    private static int[] freshShopOptions(int offset) {
+        int start = Math.floorMod(offset, 4);
+        return new int[]{start, (start + 1) % 4, (start + 2) % 4};
+    }
+
+    public int coins() {
+        return coins;
+    }
+
+    public boolean shopOpen() {
+        return shopOpen;
+    }
+
+    public int shopSelection() {
+        return shopSelection;
+    }
+
+    public int[] shopOptions() {
+        return shopOptions.clone();
+    }
+
+    public int shopRefreshCost() {
+        return shopRefreshCost;
+    }
+
+    public int comboMultiplier() {
+        return comboMultiplier;
+    }
+
+    public int comboHits() {
+        return comboHits;
+    }
+
+    public int comboCapValue() {
+        return comboCap();
+    }
+
+    public float comboWindowValue() {
+        return comboWindow();
+    }
+
+    public int bumperBonusPercent() {
+        return bumperBonusLevel * 15;
+    }
+
+    public int extraBallLevel() {
+        return extraBallLevel;
+    }
+
+    public int lifeCount() {
+        return STARTING_BALLS + extraBallLevel;
+    }
+
+    public void moveShopSelection(int direction) {
+        if (!shopOpen) {
+            return;
+        }
+        shopSelection = (shopSelection + direction + shopOptions.length) % shopOptions.length;
+    }
+
+    public boolean buySelectedPerk() {
+        if (!shopOpen) {
+            return false;
+        }
+        int perk = shopOptions[shopSelection];
+        if (perk < 0) {
+            return false;
+        }
+        int cost = perkCost(perk);
+        if (cost < 0 || coins < cost) {
+            return false;
+        }
+        coins -= cost;
+        switch (perk) {
+            case 0 -> comboUpgradeLevel++;
+            case 1 -> comboWindowUpgradeLevel++;
+            case 2 -> bumperBonusLevel++;
+            case 3 -> {
+                extraBallLevel++;
+                ballsRemaining++;
+            }
+            default -> throw new IllegalStateException("Unknown perk: " + perk);
+        }
+        shopOptions[shopSelection] = -1;
+        return true;
+    }
+
+    public boolean refreshShop() {
+        if (!shopOpen || shopRefreshCost > coins) {
+            return false;
+        }
+        coins -= shopRefreshCost;
+        int next = shopRefreshCost > MAX_COINS / 2 ? MAX_COINS + 1 : shopRefreshCost * 2;
+        shopRefreshCost = next;
+        shopOptions = freshShopOptions(shopOptions[0] < 0 ? 0 : shopOptions[0] + 1);
+        shopSelection = 0;
+        return true;
+    }
+
+    public int perkCost(int perk) {
+        return switch (perk) {
+            case 0 -> comboUpgradeLevel >= MAX_COMBO_UPGRADES ? -1 : 3 + comboUpgradeLevel * 2;
+            case 1 -> comboWindowUpgradeLevel >= MAX_WINDOW_UPGRADES ? -1 : 2 + comboWindowUpgradeLevel * 2;
+            case 2 -> bumperBonusLevel >= MAX_BONUS_UPGRADES ? -1 : 3 + bumperBonusLevel * 2;
+            case 3 -> extraBallLevel >= MAX_EXTRA_BALLS ? -1 : 6 + extraBallLevel * 3;
+            default -> throw new IllegalArgumentException("Unknown perk: " + perk);
+        };
+    }
+
+    public int perkLevel(int perk) {
+        return switch (perk) {
+            case 0 -> comboUpgradeLevel;
+            case 1 -> comboWindowUpgradeLevel;
+            case 2 -> bumperBonusLevel;
+            case 3 -> extraBallLevel;
+            default -> throw new IllegalArgumentException("Unknown perk: " + perk);
+        };
+    }
+
+    public void leaveShop() {
+        if (!shopOpen) {
+            return;
+        }
+        shopOpen = false;
         generateLevelLayout();
     }
 
@@ -111,7 +256,6 @@ public final class GameSimulation {
                 addScore(obstacle.points());
                 kickerEvent = true;
                 scoringRailContacts[index] = true;
-                registerBumperHit();
             }
         }
     }
@@ -123,6 +267,22 @@ public final class GameSimulation {
     }
 
     private void registerBumperHit() {
+        comboHits++;
+        comboTimer = comboWindow();
+        comboMultiplier = Math.min(comboMultiplier + 1, comboCap());
+    }
+
+    private int comboCap() {
+        return Math.min(5, 1 + comboUpgradeLevel);
+    }
+
+    private float comboWindow() {
+        return BASE_COMBO_WINDOW + comboWindowUpgradeLevel;
+    }
+
+    private int bumperScore(int points) {
+        int bonus = points * (100 + bumperBonusLevel * 15) / 100;
+        return bonus * comboMultiplier;
     }
 
     private List<Rail> buildRails(int table) {
@@ -402,6 +562,9 @@ public final class GameSimulation {
     }
 
     public void update(float deltaSeconds, InputState input) {
+        if (shopOpen) {
+            return;
+        }
         float delta = Math.min(Math.max(deltaSeconds, 0.0f), 0.033f);
         updateNudge(delta, input);
         updateLauncher(delta, input.launchButton());
@@ -429,6 +592,13 @@ public final class GameSimulation {
         }
 
         ball.integrate(step, new Vec2(0.0f, GRAVITY));
+        if (comboTimer > 0.0f) {
+            comboTimer = Math.max(0.0f, comboTimer - step);
+            if (comboTimer == 0.0f) {
+                comboMultiplier = 1;
+                comboHits = 0;
+            }
+        }
         limitSpeed();
         if (isDrained() || isOutOfBounds()) {
             drainBall();
@@ -503,6 +673,18 @@ public final class GameSimulation {
         orbitActive = false;
         orbitDistance = 0.0f;
         orbitScored = false;
+        coins = 0;
+        shopOpen = false;
+        shopSelection = 0;
+        shopRefreshCost = 1;
+        shopOptions = freshShopOptions(level);
+        comboUpgradeLevel = 0;
+        comboWindowUpgradeLevel = 0;
+        bumperBonusLevel = 0;
+        extraBallLevel = 0;
+        comboMultiplier = 1;
+        comboHits = 0;
+        comboTimer = 0.0f;
         generateLevelLayout();
     }
 
@@ -569,12 +751,20 @@ public final class GameSimulation {
 
     private void drainBall() {
         drainEvent = true;
-        if (score >= nextLevelScore) {
+        if (score >= nextLevelScore && !shopOpen) {
+            coins = Math.min(MAX_COINS, coins + score / 100);
             level++;
             score = 0;
             nextLevelScore = level * BASE_LEVEL_TARGET;
-            ballsRemaining = Math.min(STARTING_BALLS, ballsRemaining + 1);
-            generateLevelLayout();
+            ballsRemaining = Math.min(lifeCount(), ballsRemaining + 1);
+            comboMultiplier = 1;
+            comboHits = 0;
+            comboTimer = 0.0f;
+            shopOpen = true;
+            shopSelection = 0;
+            shopRefreshCost = 1;
+            shopOptions = freshShopOptions(level);
+            returnToLauncher();
             levelUpEvent = true;
         } else {
             ballsRemaining--;
@@ -635,10 +825,10 @@ public final class GameSimulation {
             float incomingSpeed = ball.velocity().dot(normal);
             if (incomingSpeed < 0.0f) {
                 ball.setVelocity(ball.velocity().subtract(normal.multiply(2.0f * incomingSpeed)).multiply(1.04f));
-                addScore(bumperValues[index]);
+                addScore(bumperScore(bumperValues[index]));
+                registerBumperHit();
                 bumperEvent = true;
                 bumperGlow[index] = 1.0f;
-                registerBumperHit();
             }
         }
     }
