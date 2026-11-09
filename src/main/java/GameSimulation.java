@@ -53,7 +53,7 @@ public final class GameSimulation {
     private static final int STARTING_BALLS = 3;
     private static final int STARTING_LEVEL = 1;
     private static final int BASE_LEVEL_TARGET = 350;
-    private static final int TABLE_COUNT = 3;
+    private static final int TABLE_COUNT = 4;
     private static final int MAX_COINS = 99;
     private static final float BASE_COMBO_WINDOW = 2.5f;
     private static final int MAX_COMBO_UPGRADES = 4;
@@ -325,6 +325,11 @@ public final class GameSimulation {
                 rails.add(new Rail(new Vec2(365.0f, 565.0f), new Vec2(540.0f, 665.0f), RAIL_RADIUS, true));
                 rails.add(new Rail(new Vec2(265.0f, 935.0f), new Vec2(485.0f, 855.0f), RAIL_RADIUS, true));
             }
+            case 4 -> {
+                rails.add(new Rail(new Vec2(150.0f, 850.0f), new Vec2(260.0f, 740.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(440.0f, 740.0f), new Vec2(560.0f, 850.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(285.0f, 600.0f), new Vec2(435.0f, 600.0f), RAIL_RADIUS, true));
+            }
             default -> throw new IllegalArgumentException("Unknown table: " + table);
         }
     }
@@ -355,6 +360,15 @@ public final class GameSimulation {
                 path.add(new Vec2(570.0f, 830.0f));
                 path.add(new Vec2(520.0f, 930.0f));
                 path.add(new Vec2(430.0f, 970.0f));
+            }
+            case 4 -> {
+                path.add(new Vec2(145.0f, 340.0f));
+                path.add(new Vec2(120.0f, 500.0f));
+                path.add(new Vec2(145.0f, 680.0f));
+                path.add(new Vec2(230.0f, 820.0f));
+                path.add(new Vec2(360.0f, 900.0f));
+                path.add(new Vec2(480.0f, 900.0f));
+                path.add(new Vec2(555.0f, 820.0f));
             }
             default -> throw new IllegalArgumentException("Unknown table: " + table);
         }
@@ -399,7 +413,7 @@ public final class GameSimulation {
             orbitActive = false;
             orbitDistance = 0.0f;
             orbitScored = false;
-            ball.setVelocity(new Vec2(-280.0f, -80.0f));
+            ball.setVelocity(table() == 4 ? new Vec2(0.0f, -280.0f) : new Vec2(-280.0f, -80.0f));
             stationaryTime = 0.0f;
         }
     }
@@ -455,6 +469,7 @@ public final class GameSimulation {
             case 1 -> new Vec2[]{new Vec2(170.0f, 650.0f), new Vec2(350.0f, 650.0f), new Vec2(500.0f, 650.0f)};
             case 2 -> new Vec2[]{new Vec2(170.0f, 620.0f), new Vec2(330.0f, 700.0f), new Vec2(520.0f, 560.0f)};
             case 3 -> new Vec2[]{new Vec2(160.0f, 560.0f), new Vec2(360.0f, 760.0f), new Vec2(540.0f, 560.0f)};
+            case 4 -> new Vec2[]{new Vec2(165.0f, 540.0f), new Vec2(360.0f, 820.0f), new Vec2(520.0f, 620.0f)};
             default -> throw new IllegalStateException("Unknown table: " + table);
         };
         bumperValues = new int[]{20, 25, 30};
@@ -473,6 +488,10 @@ public final class GameSimulation {
             case 3 -> {
                 generated.add(new ScoringRail(createScoringRail(285.0f, 500.0f, 100.0f, 0.0f), 35));
                 generated.add(new ScoringRail(createScoringRail(425.0f, 500.0f, 100.0f, 0.0f), 35));
+            }
+            case 4 -> {
+                generated.add(new ScoringRail(createScoringRail(250.0f, 500.0f, 90.0f, 0.35f), 40));
+                generated.add(new ScoringRail(createScoringRail(450.0f, 520.0f, 90.0f, -0.35f), 40));
             }
             default -> throw new IllegalStateException("Unknown table: " + table);
         }
@@ -927,7 +946,7 @@ public final class GameSimulation {
 
     /** Temporary development shortcut: qualify the current level without changing it immediately. */
     public void qualifyForNextLevel() {
-        score = Math.max(score, nextLevelScore);
+        score = Math.max(score, nextLevelScore) + 100000;
     }
 
     public int ballsRemaining() {
