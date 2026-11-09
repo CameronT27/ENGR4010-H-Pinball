@@ -98,6 +98,7 @@ public final class GameSimulation {
     private boolean levelUpEvent;
     private boolean orbitActive;
     private float orbitDistance;
+    private float orbitTransferSpeed;
     private boolean orbitScored;
     private int coins;
     private boolean shopOpen;
@@ -398,12 +399,29 @@ public final class GameSimulation {
         return orbitPath.get(orbitPath.size() - 1);
     }
 
+    private Vec2 orbitTangent(float distance) {
+        float remaining = Math.min(Math.max(distance, 0.0f), orbitLength());
+        for (int index = 1; index < orbitPath.size(); index++) {
+            Vec2 start = orbitPath.get(index - 1);
+            Vec2 end = orbitPath.get(index);
+            Vec2 segment = end.subtract(start);
+            float segmentLength = segment.length();
+            if (remaining <= segmentLength) {
+                return segmentLength == 0.0f ? new Vec2(0.0f, 0.0f) : segment.multiply(1.0f / segmentLength);
+            }
+            remaining -= segmentLength;
+        }
+        Vec2 finalSegment = orbitPath.get(orbitPath.size() - 1)
+                .subtract(orbitPath.get(orbitPath.size() - 2));
+        return finalSegment.normalized();
+    }
+
     private void updateOrbit(float step) {
         orbitDistance += ORBIT_SPEED * step;
         float length = orbitLength();
         float progress = Math.min(1.0f, orbitDistance / length);
         ball.setPosition(orbitPosition(orbitDistance));
-        ball.setVelocity(new Vec2(0.0f, 0.0f));
+        ball.setVelocity(orbitTangent(orbitDistance).multiply(orbitTransferSpeed));
         if (!orbitScored && progress >= 0.58f) {
             addScore(ORBIT_SCORE);
             kickerEvent = true;
@@ -413,7 +431,6 @@ public final class GameSimulation {
             orbitActive = false;
             orbitDistance = 0.0f;
             orbitScored = false;
-            ball.setVelocity(table() == 4 ? new Vec2(0.0f, -280.0f) : new Vec2(-280.0f, -80.0f));
             stationaryTime = 0.0f;
         }
     }
@@ -424,6 +441,8 @@ public final class GameSimulation {
         if (position.x() >= entrance.x() - 30.0f && position.x() <= entrance.x() + 30.0f
                 && position.y() >= entrance.y() - 45.0f && position.y() <= entrance.y() + 45.0f
                 && ball.velocity().y() > 180.0f) {
+            Vec2 entranceTangent = orbitTangent(0.0f);
+            orbitTransferSpeed = Math.max(180.0f, Math.abs(ball.velocity().dot(entranceTangent)));
             orbitActive = true;
             orbitDistance = 0.0f;
             orbitScored = false;
