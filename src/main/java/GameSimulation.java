@@ -1,7 +1,6 @@
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 
 public final class GameSimulation {
     // ---- Table layout (shared with Main so the drawing always matches the physics) ----
@@ -30,7 +29,6 @@ public final class GameSimulation {
     private static final float LAUNCH_CHARGE_TIME = 1.5f;
     private static final float GRAVITY = -900.0f;
     private static final float RESTITUTION = 0.68f;
-    private static final float GUIDE_CHANNEL_KICK = 0.90f;
     private static final float MAX_BALL_SPEED = 2000.0f;
     private static final float MAX_STEP = 1.0f / 240.0f;
     private static final float NUDGE_COOLDOWN = 0.35f;
@@ -55,6 +53,7 @@ public final class GameSimulation {
     private static final int STARTING_BALLS = 3;
     private static final int STARTING_LEVEL = 1;
     private static final int BASE_LEVEL_TARGET = 350;
+    private static final int TABLE_COUNT = 3;
 
     private final Ball ball = new Ball(new Vec2(LAUNCHER_X, LAUNCHER_REST_Y), 14.0f);
     private final Flipper leftFlipper = new Flipper(new Vec2(PLAYFIELD_CENTER_X - FLIPPER_PIVOT_OFFSET, FLIPPER_PIVOT_Y),
@@ -64,8 +63,8 @@ public final class GameSimulation {
     private Vec2[] bumpers;
     private int[] bumperValues;
     private float[] bumperGlow;
-    private final List<Rail> rails = buildRails();
-    private final List<Vec2> orbitPath = buildOrbitPath();
+    private List<Rail> rails;
+    private List<Vec2> orbitPath = buildOrbitPath(STARTING_LEVEL);
     private List<ScoringRail> obstacles;
     private boolean[] scoringRailContacts;
     private final List<Rail> launcherGate = buildLauncherGate();
@@ -99,10 +98,6 @@ public final class GameSimulation {
         generateLevelLayout();
     }
 
-    private static float mirrorX(float x) {
-        return 2.0f * PLAYFIELD_CENTER_X - x;
-    }
-
     private void collideWithObstacles() {
         for (int index = 0; index < obstacles.size(); index++) {
             Rail rail = obstacles.get(index).rail();
@@ -130,7 +125,7 @@ public final class GameSimulation {
     private void registerBumperHit() {
     }
 
-    private List<Rail> buildRails() {
+    private List<Rail> buildRails(int table) {
         List<Rail> list = new ArrayList<>();
         Vec2 leftPivot = leftFlipper.pivot();
         Vec2 rightPivot = rightFlipper.pivot();
@@ -149,28 +144,60 @@ public final class GameSimulation {
         list.add(new Rail(new Vec2(LANE_DIVIDER_X, LANE_FLOOR_Y), new Vec2(LANE_DIVIDER_X, LANE_DIVIDER_TOP), RAIL_RADIUS));
         list.add(new Rail(new Vec2(LANE_DIVIDER_X, LANE_FLOOR_Y), new Vec2(WALL_RIGHT, LANE_FLOOR_Y), RAIL_RADIUS));
 
-        // Curved guide channels redirect the ball toward the flippers without adding score.
-        Vec2[] outerChannel = {new Vec2(92.0f, 350.0f), new Vec2(98.0f, 315.0f),
-                new Vec2(116.0f, 280.0f), new Vec2(145.0f, 250.0f),
-                new Vec2(180.0f, 228.0f)};
-        Vec2[] innerChannel = {new Vec2(158.0f, 375.0f), new Vec2(166.0f, 338.0f),
-                new Vec2(184.0f, 304.0f), new Vec2(212.0f, 278.0f),
-                new Vec2(246.0f, 260.0f)};
-        for (int side = 0; side < 2; side++) {
-            addGuideChannel(list, side == 0 ? outerChannel : mirrorPoints(outerChannel));
-            addGuideChannel(list, side == 0 ? innerChannel : mirrorPoints(innerChannel));
-        }
+        addTableRails(list, table);
         return Collections.unmodifiableList(list);
     }
 
-    private static List<Vec2> buildOrbitPath() {
+    private static void addTableRails(List<Rail> rails, int table) {
+        switch (table) {
+            case 1 -> {
+                rails.add(new Rail(new Vec2(135.0f, 840.0f), new Vec2(265.0f, 750.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(395.0f, 750.0f), new Vec2(525.0f, 840.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(210.0f, 925.0f), new Vec2(430.0f, 925.0f), RAIL_RADIUS, true));
+            }
+            case 2 -> {
+                rails.add(new Rail(new Vec2(130.0f, 900.0f), new Vec2(265.0f, 690.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(350.0f, 900.0f), new Vec2(505.0f, 755.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(430.0f, 575.0f), new Vec2(555.0f, 690.0f), RAIL_RADIUS, true));
+            }
+            case 3 -> {
+                rails.add(new Rail(new Vec2(145.0f, 790.0f), new Vec2(300.0f, 695.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(365.0f, 565.0f), new Vec2(540.0f, 665.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(265.0f, 935.0f), new Vec2(485.0f, 855.0f), RAIL_RADIUS, true));
+            }
+            default -> throw new IllegalArgumentException("Unknown table: " + table);
+        }
+    }
+
+    private static List<Vec2> buildOrbitPath(int table) {
         List<Vec2> path = new ArrayList<>();
-        path.add(new Vec2(548.0f, 340.0f));
-        path.add(new Vec2(574.0f, 470.0f));
-        path.add(new Vec2(580.0f, 680.0f));
-        path.add(new Vec2(570.0f, 830.0f));
-        path.add(new Vec2(520.0f, 930.0f));
-        path.add(new Vec2(430.0f, 970.0f));
+        switch (table) {
+            case 1 -> {
+                path.add(new Vec2(145.0f, 340.0f));
+                path.add(new Vec2(120.0f, 480.0f));
+                path.add(new Vec2(145.0f, 650.0f));
+                path.add(new Vec2(220.0f, 820.0f));
+                path.add(new Vec2(330.0f, 915.0f));
+                path.add(new Vec2(430.0f, 950.0f));
+            }
+            case 2 -> {
+                path.add(new Vec2(360.0f, 340.0f));
+                path.add(new Vec2(305.0f, 485.0f));
+                path.add(new Vec2(335.0f, 640.0f));
+                path.add(new Vec2(430.0f, 780.0f));
+                path.add(new Vec2(500.0f, 895.0f));
+                path.add(new Vec2(430.0f, 960.0f));
+            }
+            case 3 -> {
+                path.add(new Vec2(548.0f, 340.0f));
+                path.add(new Vec2(574.0f, 470.0f));
+                path.add(new Vec2(580.0f, 680.0f));
+                path.add(new Vec2(570.0f, 830.0f));
+                path.add(new Vec2(520.0f, 930.0f));
+                path.add(new Vec2(430.0f, 970.0f));
+            }
+            default -> throw new IllegalArgumentException("Unknown table: " + table);
+        }
         return Collections.unmodifiableList(path);
     }
 
@@ -219,8 +246,9 @@ public final class GameSimulation {
 
     private boolean tryEnterOrbit() {
         Vec2 position = ball.position();
-        if (position.x() >= 525.0f && position.x() <= 570.0f
-                && position.y() >= 295.0f && position.y() <= 375.0f
+        Vec2 entrance = orbitPath.get(0);
+        if (position.x() >= entrance.x() - 30.0f && position.x() <= entrance.x() + 30.0f
+                && position.y() >= entrance.y() - 45.0f && position.y() <= entrance.y() + 45.0f
                 && ball.velocity().y() > 180.0f) {
             orbitActive = true;
             orbitDistance = 0.0f;
@@ -253,73 +281,70 @@ public final class GameSimulation {
         }
     }
 
-    private static void addGuideChannel(List<Rail> rails, Vec2[] points) {
-        for (int index = 0; index + 1 < points.length; index++) {
-            rails.add(new Rail(points[index], points[index + 1], RAIL_RADIUS, GUIDE_CHANNEL_KICK));
-        }
-    }
-
     private static List<Rail> buildLauncherGate() {
         Vec2 start = new Vec2(LANE_DIVIDER_X, LANE_DIVIDER_TOP);
         Vec2 end = new Vec2(WALL_RIGHT, 900.0f);
         return Collections.singletonList(new Rail(start, end, RAIL_RADIUS));
     }
 
-    private static Vec2[] mirrorPoints(Vec2[] points) {
-        Vec2[] mirrored = new Vec2[points.length];
-        for (int index = 0; index < points.length; index++) {
-            mirrored[index] = new Vec2(mirrorX(points[index].x()), points[index].y());
-        }
-        return mirrored;
-    }
-
     private void generateLevelLayout() {
-        Random random = new Random();
-        // Add a bumper only every three levels and keep later layouts readable.
-        int bumperCount = Math.min(3 + (level - 1) / 3, 4);
-        bumpers = new Vec2[bumperCount];
-        bumperValues = new int[bumperCount];
-        bumperGlow = new float[bumperCount];
-
-        for (int index = 0; index < bumperCount; index++) {
-            bumpers[index] = randomBumperPosition(random, index);
-            bumperValues[index] = 15 + random.nextInt(4) * 5;
-        }
+        int table = table();
+        rails = buildRails(table);
+        orbitPath = buildOrbitPath(table);
+        bumpers = switch (table) {
+            case 1 -> new Vec2[]{new Vec2(170.0f, 650.0f), new Vec2(350.0f, 650.0f), new Vec2(500.0f, 650.0f)};
+            case 2 -> new Vec2[]{new Vec2(170.0f, 620.0f), new Vec2(330.0f, 700.0f), new Vec2(520.0f, 560.0f)};
+            case 3 -> new Vec2[]{new Vec2(160.0f, 560.0f), new Vec2(360.0f, 760.0f), new Vec2(540.0f, 560.0f)};
+            default -> throw new IllegalStateException("Unknown table: " + table);
+        };
+        bumperValues = new int[]{20, 25, 30};
+        bumperGlow = new float[bumpers.length];
 
         List<ScoringRail> generated = new ArrayList<>();
-        int obstacleCount = Math.min(level - 1, 4);
-        for (int index = 0; index < obstacleCount; index++) {
-            ScoringRail obstacle = randomScoringRail(random, generated);
-            if (obstacle == null) {
-                throw new IllegalStateException("Unable to place non-overlapping scoring rail " + index);
+        switch (table) {
+            case 1 -> {
+                generated.add(new ScoringRail(createScoringRail(220.0f, 560.0f, 90.0f, 0.35f), 25));
+                generated.add(new ScoringRail(createScoringRail(410.0f, 560.0f, 90.0f, -0.35f), 25));
             }
-            generated.add(obstacle);
+            case 2 -> {
+                generated.add(new ScoringRail(createScoringRail(240.0f, 480.0f, 80.0f, -0.35f), 30));
+                generated.add(new ScoringRail(createScoringRail(440.0f, 480.0f, 80.0f, 0.35f), 30));
+            }
+            case 3 -> {
+                generated.add(new ScoringRail(createScoringRail(285.0f, 500.0f, 100.0f, 0.0f), 35));
+                generated.add(new ScoringRail(createScoringRail(425.0f, 500.0f, 100.0f, 0.0f), 35));
+            }
+            default -> throw new IllegalStateException("Unknown table: " + table);
         }
+        validateLayout(generated, table);
         obstacles = Collections.unmodifiableList(generated);
         scoringRailContacts = new boolean[generated.size()];
     }
 
-    private ScoringRail randomScoringRail(Random random, List<ScoringRail> existing) {
-        for (int attempt = 0; attempt < 100; attempt++) {
-            float x = 170.0f + random.nextInt(300);
-            float y = 410.0f + random.nextInt(270);
-            float length = 55.0f + random.nextInt(35);
-            Rail rail = createScoringRail(x, y, length, random.nextBoolean() ? 0.35f : -0.35f);
-            if (isScoringRailAvailable(rail, existing)) {
-                return new ScoringRail(rail, 20 + level * 5);
+    private void validateLayout(List<ScoringRail> scoringRails, int table) {
+        for (int index = 0; index < bumpers.length; index++) {
+            if (!isBumperPositionAvailable(bumpers[index], index)) {
+                throw new IllegalStateException("Invalid bumper placement on table " + table);
             }
-        }
-        for (float y = 430.0f; y <= 670.0f; y += 45.0f) {
-            for (float x = 180.0f; x <= 460.0f; x += 55.0f) {
-                for (float angle : new float[]{0.35f, -0.35f}) {
-                    Rail rail = createScoringRail(x, y, 60.0f, angle);
-                    if (isScoringRailAvailable(rail, existing)) {
-                        return new ScoringRail(rail, 20 + level * 5);
-                    }
+            for (Rail rail : rails) {
+                float clearance = BUMPER_RADIUS + rail.radius() + SCORING_RAIL_CLEARANCE;
+                if (isPointNearRail(bumpers[index], rail, clearance)) {
+                    throw new IllegalStateException("Bumper " + index + " overlaps table rail on table " + table);
                 }
             }
         }
-        return null;
+        for (int index = 0; index < scoringRails.size(); index++) {
+            if (!isScoringRailAvailable(scoringRails.get(index).rail(),
+                    scoringRails.subList(0, index))) {
+                throw new IllegalStateException("Overlapping scoring rail on table " + table);
+            }
+            for (Rail rail : rails) {
+                if (isPointNearRail(scoringRails.get(index).rail().a(), rail, SCORING_RAIL_CLEARANCE)
+                        || isPointNearRail(scoringRails.get(index).rail().b(), rail, SCORING_RAIL_CLEARANCE)) {
+                    throw new IllegalStateException("Scoring rail overlaps table rail on table " + table);
+                }
+            }
+        }
     }
 
     private static Rail createScoringRail(float x, float y, float length, float angle) {
@@ -351,35 +376,6 @@ public final class GameSimulation {
 
     private static boolean isPointNearRail(Vec2 point, Rail rail, float clearance) {
         return point.subtract(rail.closestPoint(point)).lengthSquared() < clearance * clearance;
-    }
-
-    private Vec2 randomBumperPosition(Random random, int bumperIndex) {
-        for (int attempt = 0; attempt < 100; attempt++) {
-            float x;
-            if (random.nextBoolean()) {
-                x = 100.0f + random.nextFloat() * 100.0f;
-            } else {
-                x = 425.0f + random.nextFloat() * 100.0f;
-            }
-            if (random.nextFloat() < 0.35f) {
-                x = BUMPER_MIN_X + random.nextFloat() * (BUMPER_MAX_X - BUMPER_MIN_X);
-            }
-            float y = 590.0f + random.nextFloat() * (BUMPER_MAX_Y - 590.0f);
-            Vec2 candidate = new Vec2(x, y);
-            if (isBumperPositionAvailable(candidate, bumperIndex)) {
-                return candidate;
-            }
-        }
-        // A deterministic grid keeps generated levels valid even if random attempts cluster.
-        for (float y = BUMPER_MIN_Y; y <= BUMPER_MAX_Y; y += MIN_BUMPER_SPACING) {
-            for (float x = BUMPER_MIN_X; x <= BUMPER_MAX_X; x += MIN_BUMPER_SPACING) {
-                Vec2 candidate = new Vec2(x, y);
-                if (isBumperPositionAvailable(candidate, bumperIndex)) {
-                    return candidate;
-                }
-            }
-        }
-        throw new IllegalStateException("Unable to place non-overlapping bumper " + bumperIndex);
     }
 
     private boolean isBumperPositionAvailable(Vec2 candidate, int bumperCount) {
@@ -729,6 +725,10 @@ public final class GameSimulation {
 
     public int level() {
         return level;
+    }
+
+    public int table() {
+        return ((level - STARTING_LEVEL) % TABLE_COUNT) + STARTING_LEVEL;
     }
 
     public int nextLevelScore() {

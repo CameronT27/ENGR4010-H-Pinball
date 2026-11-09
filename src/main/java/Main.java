@@ -186,7 +186,8 @@ public final class Main {
                     if (levelTransitionTime <= 0.0f) {
                         showingLevelTransition = false;
                     }
-                    glfwSetWindowTitle(window, "2.5D Pinball | Level " + simulation.level());
+                    glfwSetWindowTitle(window, "2.5D Pinball | Table " + simulation.table()
+                            + " | Level " + simulation.level());
                 } else {
                     glfwSetWindowTitle(window, "2.5D Pinball | Press Enter to start");
                 }
@@ -196,7 +197,7 @@ public final class Main {
                 if (showingIntro) {
                     drawIntroScreen(simulation);
                 } else if (showingLevelTransition) {
-                    drawLevelTransition(simulation.level());
+                    drawLevelTransition(simulation.table(), simulation.level());
                 } else {
                     drawTable(simulation);
                 }
@@ -433,7 +434,8 @@ public final class Main {
         drawText("TOTAL " + simulation.totalScore(), boardX(145.0f / BOARD_BASE_WIDTH),
                 boardY(859.0f / BOARD_BASE_HEIGHT),
                 2.1f, 0.95f, 0.75f, 0.20f, 1.0f);
-        drawText("LEVEL " + simulation.level(), boardX(465.0f / BOARD_BASE_WIDTH),
+        drawText("TABLE " + simulation.table() + "  LV " + simulation.level(),
+                boardX(425.0f / BOARD_BASE_WIDTH),
                 boardY(859.0f / BOARD_BASE_HEIGHT),
                 2.1f, 0.95f, 0.75f, 0.20f, 1.0f);
 
@@ -745,7 +747,7 @@ public final class Main {
         glEnable(GL_DEPTH_TEST);
     }
 
-    private static void drawLevelTransition(int level) {
+    private static void drawLevelTransition(int table, int progression) {
         glDisable(GL_DEPTH_TEST);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
@@ -760,16 +762,18 @@ public final class Main {
         color(0.01f, 0.05f, 0.07f, 1.0f);
         rect(40.0f, 40.0f, WINDOW_WIDTH - 40.0f, WINDOW_HEIGHT - 40.0f);
 
-        float levelTextWidth = textWidth("LEVEL", 10.0f);
-        int levelDigits = Math.max(1, Integer.toString(Math.max(0, level)).length());
+        float levelTextWidth = textWidth("TABLE", 10.0f);
+        int levelDigits = Math.max(1, Integer.toString(Math.max(0, table)).length());
         float levelDigitWidth = 60.0f;
         float levelDigitGap = levelDigitWidth * 0.35f;
         float levelNumberWidth = levelDigits * levelDigitWidth
                 + (levelDigits - 1) * levelDigitGap;
         float levelStart = WINDOW_WIDTH / 2.0f - (levelTextWidth + 10.0f + levelNumberWidth) / 2.0f;
-        drawText("LEVEL", levelStart, 650.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
-        drawNumber(level, levelDigits, levelStart + levelTextWidth + 10.0f + levelNumberWidth / 2.0f,
+        drawText("TABLE", levelStart, 650.0f, 10.0f, 1.0f, 0.33f, 0.45f, 1.0f);
+        drawNumber(table, levelDigits, levelStart + levelTextWidth + 10.0f + levelNumberWidth / 2.0f,
                 680.0f, levelDigitWidth, 70.0f, 8.0f, 1.0f, 0.33f, 0.45f, 1.0f, false);
+        drawCenteredText("PROGRESSION " + progression, WINDOW_WIDTH / 2.0f, 600.0f,
+                2.2f, 0.95f, 0.75f, 0.20f, 1.0f);
         drawCenteredText("NEW TABLE LAYOUT", WINDOW_WIDTH / 2.0f, 545.0f,
                 2.5f, 0.85f, 0.90f, 0.92f, 1.0f);
         glEnable(GL_DEPTH_TEST);

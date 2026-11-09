@@ -11,6 +11,18 @@ launch power. The launch follows a curved guide into the playfield, after
 which gravity and collisions take over. Bumper hits increase the score, and
 draining the ball between the flippers uses one of three balls.
 
+The game has three fixed table layouts built around different active rail
+routes. Table 1 uses a rising central fork, table 2 uses staggered diagonals
+for alternating shots, and table 3 uses offset shelves for broad cross-table
+routes. Each table uses three deliberately placed bumpers and two scoring
+rails. The HUD shows both the current table and the overall progression.
+
+Progression advances from 1 to 2 to 3 and then selects tables 1, 2, and 3
+again. The score target continues increasing across the loop (350, 700, 1050,
+1400, and so on), while the current-level score resets to zero when a new table
+is loaded. The total score remains accumulated. Resetting with `R` starts a new
+game at progression 1, table 1.
+
 Online connectivity is intentionally out of scope for the first MVP. The team
 can revisit networking after the local game is stable and distributable.
 
@@ -31,8 +43,8 @@ developer assistance:
 
 Features such as additional tables, game modes, multiplayer, and advanced
 visual effects are deferred until this checklist is reliable. The current
-prototype includes scoring progression, generated table layouts, and a point
-power-up.
+prototype includes scoring progression, three hand-designed table layouts,
+and a point power-up.
 
 Gameplay sound effects are generated at runtime, so no separate audio files are
 required. If the operating system has no available audio line, the game
@@ -122,6 +134,9 @@ Each package must be built on its target operating system because LWJGL includes
 - `M`: return to the main menu after game over
 - `N`: development shortcut to qualify for the next level
 - `Escape`: close the game window
+
+The flippers, launcher, nudge controls, scoring, sound feedback, ball count,
+and game-over behavior are shared across all three tables.
 
 ## Troubleshooting
 

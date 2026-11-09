@@ -4,11 +4,15 @@
  * A kick other than 1.0 marks the rail as a guide channel. Guide channels
  * preserve the bounce direction while applying a small speed gain.
  */
-public record Rail(Vec2 a, Vec2 b, float radius, float kick) {
+public record Rail(Vec2 a, Vec2 b, float radius, float kick, boolean directedExit) {
     private static final float GUIDE_CHANNEL_ROLL_ACCELERATION = 55.0f;
 
     public Rail(Vec2 a, Vec2 b, float radius) {
-        this(a, b, radius, 1.0f);
+        this(a, b, radius, 1.0f, false);
+    }
+
+    public Rail(Vec2 a, Vec2 b, float radius, boolean directedExit) {
+        this(a, b, radius, 1.0f, directedExit);
     }
 
     public boolean isKicker() {
@@ -52,6 +56,23 @@ public record Rail(Vec2 a, Vec2 b, float radius, float kick) {
             return false;
         }
         Vec2 bounced = ball.velocity().subtract(normal.multiply((1.0f + restitution) * normalSpeed));
+        boolean atEndpoint = directedExit
+                && (closest.subtract(a).lengthSquared() <= minimumDistance * minimumDistance
+                || closest.subtract(b).lengthSquared() <= minimumDistance * minimumDistance);
+        if (atEndpoint) {
+            Vec2 along = b.subtract(a).normalized();
+            float alongSpeed = ball.velocity().dot(along);
+            if (Math.abs(alongSpeed) < 1.0f) {
+                alongSpeed = bounced.dot(along);
+            }
+            if (Math.abs(alongSpeed) < 1.0f) {
+                boolean atStart = closest.subtract(a).lengthSquared()
+                        <= closest.subtract(b).lengthSquared();
+                alongSpeed = atStart ? -180.0f : 180.0f;
+            }
+            ball.setVelocity(along.multiply(Math.copySign(Math.max(Math.abs(alongSpeed), 180.0f), alongSpeed)));
+            return true;
+        }
         if (isGuideChannel()) {
             Vec2 along = b.subtract(a).normalized();
             if (along.y() > 0.0f) {
