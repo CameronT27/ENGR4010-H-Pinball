@@ -248,7 +248,7 @@ public final class Main {
 
                 if (!showingIntro && simulation.shopOpen()) {
                     glfwSetWindowTitle(window, "2.5D Pinball | SHOP | Coins: " + simulation.coins());
-                } else if (!showingIntro && simulation.placementMode()) {
+                } else if (!showingIntro && !showingLevelTransition && simulation.placementMode()) {
                     glfwSetWindowTitle(window, "2.5D Pinball | PLACE PARTS | Bumpers: "
                             + simulation.bumperInventory() + " | Rails: " + simulation.railInventory());
                 } else if (!showingIntro && !showingLevelTransition) {
@@ -1023,7 +1023,7 @@ public final class Main {
     }
 
     private static void drawBumpers(GameSimulation simulation) {
-        if (simulation.table() == 5 && simulation.placementMode()) {
+        if (simulation.placementMode()) {
             Vec2[] slots = simulation.bumperSlots();
             for (int index = 0; index < slots.length; index++) {
                 Vec2 slot = slots[index];

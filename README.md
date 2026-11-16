@@ -16,11 +16,11 @@ routes. Table 1 uses a rising central fork, table 2 uses staggered diagonals
 for alternating shots, table 3 uses offset shelves for broad cross-table
 routes, and table 4 enters from the left, climbs around the upper playfield,
 crosses the top, and exits at the upper-right before sending the ball downward
-into a bumper. Table 5 is a bumper-placement test table with 24 small slots
-spread across the playable area. The slots start empty and a fresh run supplies
-three circular bumper pieces and two line-rail pieces. The player chooses which
-slots to fill before starting play. The HUD shows both the current table and
-the overall progression.
+into a bumper. All five tables now have 24 small placement slots spread around
+their playable areas. Slots start empty and a fresh run supplies three circular
+bumper pieces and two line-rail pieces. The player chooses which slots to fill
+before starting each table. The HUD shows both the current table and the
+overall progression.
 
 Progression advances from 1 to 2 to 3 to 4 to 5 and then selects tables 1, 2,
 3, 4, and 5 again. The score target continues increasing across the loop (350,
@@ -143,9 +143,9 @@ Each package must be built on its target operating system because LWJGL includes
 The flippers, launcher, nudge controls, scoring, sound feedback, ball count,
 and game-over behavior are shared across all five tables.
 
-## Table 5 board customization
+## Board customization
 
-When Table 5 begins, play is paused in placement mode. Use `Up` / `Down` to
+When any table begins, play is paused in placement mode. Use `Up` / `Down` to
 select one of the 24 slots, `A` / `D` to choose between the circular bumper and
 line-rail part, `B` to place the selected available part, and `X` to remove the
 part from the selected slot. Press `Enter` to start the table. Slot markers are
@@ -153,8 +153,9 @@ small and visible only during editing; placed bumpers retain their normal size,
 and line parts become solid deflecting rails during play. Placement edits are
 accepted only before play starts. The overlay shows both inventories and the
 selected part. The selected board configuration and unused inventory persist
-across table transitions during the current run. Resetting with `R` clears the
-board and restores the three bumper and two rail test parts.
+across table transitions during the current run; each table has its own saved
+layout. Resetting with `R` clears every table board and restores the three
+bumper and two rail test parts.
 
 ## Between-level shop
 

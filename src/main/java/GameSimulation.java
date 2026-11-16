@@ -39,21 +39,12 @@ public final class GameSimulation {
     private static final float ORBIT_HEIGHT = 105.0f;
     private static final int ORBIT_SCORE = 100;
     private static final float BUMPER_RADIUS = 28.0f;
-    private static final float MIN_BUMPER_SPACING = BUMPER_RADIUS * 2.0f + 4.0f;
-    private static final float BUMPER_MIN_X = WALL_LEFT + BUMPER_RADIUS + 8.0f;
-    private static final float BUMPER_MAX_X = LANE_DIVIDER_X - BUMPER_RADIUS - 8.0f;
-    private static final float BUMPER_MIN_Y = 500.0f;
-    private static final float BUMPER_MAX_Y = WALL_TOP - BUMPER_RADIUS - 24.0f;
     private static final float CUSTOM_SLOT_MIN_X = WALL_LEFT + 34.0f;
     private static final float CUSTOM_SLOT_MAX_X = LANE_DIVIDER_X - 34.0f;
     private static final float CUSTOM_SLOT_MIN_Y = 390.0f;
     private static final float CUSTOM_SLOT_MAX_Y = WALL_TOP - 42.0f;
     private static final float PLACED_RAIL_HALF_LENGTH = 30.0f;
     private static final float PLACED_RAIL_RADIUS = 6.0f;
-    private static final float LAUNCH_EXIT_CLEARANCE = 96.0f;
-    private static final float LOWER_MIDDLE_LEFT = 210.0f;
-    private static final float LOWER_MIDDLE_RIGHT = 430.0f;
-    private static final float LOWER_MIDDLE_TOP = 650.0f;
     private static final float SCORING_RAIL_RADIUS = 5.0f;
     private static final float SCORING_RAIL_CLEARANCE = 6.0f;
     private static final int STARTING_BALLS = 3;
@@ -80,6 +71,7 @@ public final class GameSimulation {
     private Vec2[] bumpers;
     private Vec2[] bumperSlots;
     private int[] placedPartTypes;
+    private int[][] savedPartTypesByTable = new int[TABLE_COUNT][];
     private int[] bumperValues;
     private float[] bumperGlow;
     private List<Rail> placedRails = Collections.emptyList();
@@ -306,7 +298,10 @@ public final class GameSimulation {
         if (slot < 0 || slot >= bumperSlots.length) {
             throw new IllegalArgumentException("Unknown placement slot: " + slot);
         }
-        Vec2 center = bumperSlots[slot];
+        return createPlacementRail(bumperSlots[slot]);
+    }
+
+    private static Rail createPlacementRail(Vec2 center) {
         return new Rail(new Vec2(center.x(), center.y() - PLACED_RAIL_HALF_LENGTH),
                 new Vec2(center.x(), center.y() + PLACED_RAIL_HALF_LENGTH),
                 PLACED_RAIL_RADIUS);
@@ -619,38 +614,6 @@ public final class GameSimulation {
         int table = table();
         rails = buildRails(table);
         orbitPath = buildOrbitPath(table);
-        bumperSlots = switch (table) {
-            case 1 -> new Vec2[]{new Vec2(170.0f, 650.0f), new Vec2(350.0f, 650.0f), new Vec2(500.0f, 650.0f)};
-            case 2 -> new Vec2[]{new Vec2(170.0f, 620.0f), new Vec2(330.0f, 700.0f), new Vec2(520.0f, 560.0f)};
-            case 3 -> new Vec2[]{new Vec2(160.0f, 560.0f), new Vec2(360.0f, 760.0f), new Vec2(540.0f, 560.0f)};
-            case 4 -> new Vec2[]{new Vec2(165.0f, 540.0f), new Vec2(360.0f, 820.0f), new Vec2(520.0f, 620.0f)};
-            case 5 -> new Vec2[]{
-                    new Vec2(90.0f, 420.0f), new Vec2(185.0f, 420.0f), new Vec2(280.0f, 420.0f),
-                    new Vec2(375.0f, 420.0f), new Vec2(470.0f, 420.0f), new Vec2(565.0f, 420.0f),
-                    new Vec2(90.0f, 700.0f), new Vec2(185.0f, 700.0f), new Vec2(280.0f, 700.0f),
-                    new Vec2(375.0f, 700.0f), new Vec2(470.0f, 700.0f), new Vec2(565.0f, 700.0f),
-                    new Vec2(90.0f, 780.0f), new Vec2(185.0f, 780.0f), new Vec2(280.0f, 780.0f),
-                    new Vec2(375.0f, 780.0f), new Vec2(510.0f, 780.0f), new Vec2(565.0f, 780.0f),
-                    new Vec2(110.0f, 940.0f), new Vec2(190.0f, 940.0f), new Vec2(310.0f, 940.0f),
-                    new Vec2(390.0f, 940.0f), new Vec2(470.0f, 940.0f), new Vec2(550.0f, 940.0f)
-            };
-            default -> throw new IllegalStateException("Unknown table: " + table);
-        };
-        bumperValues = new int[]{20, 25, 30};
-        if (table == 5) {
-            if (placedPartTypes == null || placedPartTypes.length != bumperSlots.length) {
-                placedPartTypes = new int[bumperSlots.length];
-                java.util.Arrays.fill(placedPartTypes, PART_EMPTY);
-            }
-            placementSelection = Math.min(placementSelection, bumperSlots.length - 1);
-            placementMode = true;
-        } else {
-            bumpers = placeBumpersInSlots(bumperSlots, 3);
-            bumperGlow = new float[bumpers.length];
-            placementMode = false;
-        }
-        refreshActiveParts();
-
         List<ScoringRail> generated = new ArrayList<>();
         switch (table) {
             case 1 -> {
@@ -675,9 +638,97 @@ public final class GameSimulation {
             }
             default -> throw new IllegalStateException("Unknown table: " + table);
         }
+        bumperSlots = buildPlacementSlots(table, generated);
+        int tableIndex = table - STARTING_LEVEL;
+        if (savedPartTypesByTable[tableIndex] == null
+                || savedPartTypesByTable[tableIndex].length != bumperSlots.length) {
+            savedPartTypesByTable[tableIndex] = emptyPartLayout(bumperSlots.length);
+        }
+        placedPartTypes = savedPartTypesByTable[tableIndex];
+        placementSelection = Math.min(placementSelection, bumperSlots.length - 1);
+        placementMode = true;
+        bumperValues = new int[]{20, 25, 30};
+        refreshActiveParts();
         validateLayout(generated, table);
         obstacles = Collections.unmodifiableList(generated);
         scoringRailContacts = new boolean[generated.size()];
+    }
+
+    private Vec2[] buildPlacementSlots(int table, List<ScoringRail> scoringRails) {
+        float[] xValues;
+        float[] yValues;
+        switch (table) {
+            case 1 -> {
+                xValues = new float[]{70.0f, 145.0f, 220.0f, 295.0f, 370.0f, 445.0f, 520.0f, 595.0f};
+                yValues = new float[]{390.0f, 460.0f, 530.0f, 600.0f, 670.0f, 740.0f, 810.0f, 880.0f, 950.0f};
+            }
+            case 2 -> {
+                xValues = new float[]{78.0f, 153.0f, 228.0f, 303.0f, 378.0f, 453.0f, 528.0f, 603.0f};
+                yValues = new float[]{410.0f, 480.0f, 550.0f, 620.0f, 690.0f, 760.0f, 830.0f, 900.0f, 970.0f};
+            }
+            case 3 -> {
+                xValues = new float[]{70.0f, 145.0f, 220.0f, 295.0f, 370.0f, 445.0f, 520.0f, 595.0f};
+                yValues = new float[]{400.0f, 470.0f, 540.0f, 610.0f, 680.0f, 750.0f, 820.0f, 890.0f, 960.0f};
+            }
+            case 4 -> {
+                xValues = new float[]{86.0f, 161.0f, 236.0f, 311.0f, 386.0f, 461.0f, 536.0f, 611.0f};
+                yValues = new float[]{420.0f, 490.0f, 560.0f, 630.0f, 700.0f, 770.0f, 840.0f, 910.0f, 980.0f};
+            }
+            case 5 -> {
+                xValues = new float[]{90.0f, 165.0f, 240.0f, 315.0f, 390.0f, 465.0f, 540.0f, 615.0f};
+                yValues = new float[]{420.0f, 490.0f, 560.0f, 630.0f, 700.0f, 770.0f, 840.0f, 910.0f, 980.0f};
+            }
+            default -> throw new IllegalStateException("Unknown table: " + table);
+        }
+
+        List<Rail> fixedGeometry = new ArrayList<>(rails);
+        for (ScoringRail scoringRail : scoringRails) {
+            fixedGeometry.add(scoringRail.rail());
+        }
+        for (int index = 1; index < orbitPath.size(); index++) {
+            fixedGeometry.add(new Rail(orbitPath.get(index - 1), orbitPath.get(index), 7.0f));
+        }
+
+        List<Vec2> slots = new ArrayList<>();
+        for (float y : yValues) {
+            for (float x : xValues) {
+                Vec2 candidate = new Vec2(x, y);
+                if (isPlacementSlotClear(candidate, fixedGeometry, slots)) {
+                    slots.add(candidate);
+                }
+            }
+        }
+        if (slots.size() < 24) {
+            throw new IllegalStateException("Table " + table + " has fewer than 24 valid placement slots");
+        }
+        return slots.subList(0, 24).toArray(Vec2[]::new);
+    }
+
+    private boolean isPlacementSlotClear(Vec2 candidate, List<Rail> fixedGeometry, List<Vec2> existing) {
+        if (candidate.x() < CUSTOM_SLOT_MIN_X || candidate.x() > CUSTOM_SLOT_MAX_X
+                || candidate.y() < CUSTOM_SLOT_MIN_Y || candidate.y() > CUSTOM_SLOT_MAX_Y) {
+            return false;
+        }
+        Rail candidateRail = createPlacementRail(candidate);
+        for (Rail fixed : fixedGeometry) {
+            if (isPointNearRail(candidate, fixed, BUMPER_RADIUS + fixed.radius() + SCORING_RAIL_CLEARANCE)
+                    || isRailNearRail(candidateRail, fixed,
+                    PLACED_RAIL_RADIUS + fixed.radius() + SCORING_RAIL_CLEARANCE)) {
+                return false;
+            }
+        }
+        for (Vec2 other : existing) {
+            if (candidate.subtract(other).length() < BUMPER_RADIUS * 2.0f + SCORING_RAIL_CLEARANCE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int[] emptyPartLayout(int size) {
+        int[] layout = new int[size];
+        java.util.Arrays.fill(layout, PART_EMPTY);
+        return layout;
     }
 
     private boolean isCustomBumperClear(Vec2 candidate, List<ScoringRail> scoringRails) {
@@ -700,27 +751,23 @@ public final class GameSimulation {
     }
 
     private void refreshActiveParts() {
-        if (table() == 5) {
-            int bumperCount = 0;
-            List<Rail> rails = new ArrayList<>();
-            for (int slot = 0; slot < placedPartTypes.length; slot++) {
-                if (placedPartTypes[slot] == PART_BUMPER) {
-                    bumperCount++;
-                } else if (placedPartTypes[slot] == PART_RAIL) {
-                    rails.add(placementRail(slot));
-                }
+        int bumperCount = 0;
+        List<Rail> rails = new ArrayList<>();
+        for (int slot = 0; slot < placedPartTypes.length; slot++) {
+            if (placedPartTypes[slot] == PART_BUMPER) {
+                bumperCount++;
+            } else if (placedPartTypes[slot] == PART_RAIL) {
+                rails.add(placementRail(slot));
             }
-            bumpers = new Vec2[bumperCount];
-            int bumperIndex = 0;
-            for (int slot = 0; slot < placedPartTypes.length; slot++) {
-                if (placedPartTypes[slot] == PART_BUMPER) {
-                    bumpers[bumperIndex++] = bumperSlots[slot];
-                }
-            }
-            placedRails = Collections.unmodifiableList(rails);
-        } else {
-            placedRails = Collections.emptyList();
         }
+        bumpers = new Vec2[bumperCount];
+        int bumperIndex = 0;
+        for (int slot = 0; slot < placedPartTypes.length; slot++) {
+            if (placedPartTypes[slot] == PART_BUMPER) {
+                bumpers[bumperIndex++] = bumperSlots[slot];
+            }
+        }
+        placedRails = Collections.unmodifiableList(rails);
         bumperGlow = new float[bumpers.length];
     }
 
@@ -784,19 +831,9 @@ public final class GameSimulation {
                 || isPointNearRail(second.b(), first, clearance);
     }
 
-    private static Vec2[] placeBumpersInSlots(Vec2[] slots, int count) {
-        if (count < 0 || count > slots.length) {
-            throw new IllegalArgumentException("Bumper count must fit within the available slots");
-        }
-        Vec2[] placed = new Vec2[count];
-        System.arraycopy(slots, 0, placed, 0, count);
-        return placed;
-    }
-
     private void validateLayout(List<ScoringRail> scoringRails, int table) {
         for (int index = 0; index < bumpers.length; index++) {
-            if (table == 5 ? !isCustomBumperClear(bumpers[index], scoringRails)
-                    : !isBumperPositionAvailable(bumpers[index], index)) {
+            if (!isCustomBumperClear(bumpers[index], scoringRails)) {
                 throw new IllegalStateException("Invalid bumper placement on table " + table);
             }
             for (Rail rail : rails) {
@@ -863,29 +900,6 @@ public final class GameSimulation {
 
     private static boolean isPointNearRail(Vec2 point, Rail rail, float clearance) {
         return point.subtract(rail.closestPoint(point)).lengthSquared() < clearance * clearance;
-    }
-
-    private boolean isBumperPositionAvailable(Vec2 candidate, int bumperCount) {
-        if (candidate.x() < BUMPER_MIN_X || candidate.x() > BUMPER_MAX_X
-                || candidate.y() < BUMPER_MIN_Y || candidate.y() > BUMPER_MAX_Y) {
-            return false;
-        }
-        if (candidate.x() > LOWER_MIDDLE_LEFT && candidate.x() < LOWER_MIDDLE_RIGHT
-                && candidate.y() < LOWER_MIDDLE_TOP) {
-            return false;
-        }
-        Vec2 launchExit = new Vec2(LANE_DIVIDER_X, LANE_DIVIDER_TOP);
-        if (candidate.subtract(launchExit).lengthSquared()
-                < LAUNCH_EXIT_CLEARANCE * LAUNCH_EXIT_CLEARANCE) {
-            return false;
-        }
-        for (int index = 0; index < bumperCount; index++) {
-            if (candidate.subtract(bumpers[index]).lengthSquared()
-                    < MIN_BUMPER_SPACING * MIN_BUMPER_SPACING) {
-                return false;
-            }
-        }
-        return true;
     }
 
     public void update(float deltaSeconds, InputState input) {
@@ -1009,6 +1023,7 @@ public final class GameSimulation {
         placementSelection = 0;
         placementPartType = PART_BUMPER;
         placedPartTypes = null;
+        java.util.Arrays.fill(savedPartTypesByTable, null);
         shopSelection = 0;
         shopRefreshCost = 1;
         shopOptions = freshShopOptions(level);
