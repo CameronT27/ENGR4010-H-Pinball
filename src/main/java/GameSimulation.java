@@ -44,6 +44,12 @@ public final class GameSimulation {
     private static final float BUMPER_MAX_X = LANE_DIVIDER_X - BUMPER_RADIUS - 8.0f;
     private static final float BUMPER_MIN_Y = 500.0f;
     private static final float BUMPER_MAX_Y = WALL_TOP - BUMPER_RADIUS - 24.0f;
+    private static final float CUSTOM_SLOT_MIN_X = WALL_LEFT + 34.0f;
+    private static final float CUSTOM_SLOT_MAX_X = LANE_DIVIDER_X - 34.0f;
+    private static final float CUSTOM_SLOT_MIN_Y = 390.0f;
+    private static final float CUSTOM_SLOT_MAX_Y = WALL_TOP - 42.0f;
+    private static final float PLACED_RAIL_HALF_LENGTH = 30.0f;
+    private static final float PLACED_RAIL_RADIUS = 6.0f;
     private static final float LAUNCH_EXIT_CLEARANCE = 96.0f;
     private static final float LOWER_MIDDLE_LEFT = 210.0f;
     private static final float LOWER_MIDDLE_RIGHT = 430.0f;
@@ -51,9 +57,14 @@ public final class GameSimulation {
     private static final float SCORING_RAIL_RADIUS = 5.0f;
     private static final float SCORING_RAIL_CLEARANCE = 6.0f;
     private static final int STARTING_BALLS = 3;
+    private static final int STARTING_BUMPER_PARTS = 3;
+    private static final int STARTING_RAIL_PARTS = 2;
+    public static final int PART_BUMPER = 0;
+    public static final int PART_RAIL = 1;
+    public static final int PART_EMPTY = -1;
     private static final int STARTING_LEVEL = 1;
     private static final int BASE_LEVEL_TARGET = 350;
-    private static final int TABLE_COUNT = 4;
+    private static final int TABLE_COUNT = 5;
     private static final int MAX_COINS = 99;
     private static final float BASE_COMBO_WINDOW = 2.5f;
     private static final int MAX_COMBO_UPGRADES = 4;
@@ -67,8 +78,11 @@ public final class GameSimulation {
     private final Flipper rightFlipper = new Flipper(new Vec2(PLAYFIELD_CENTER_X + FLIPPER_PIVOT_OFFSET, FLIPPER_PIVOT_Y),
             100.0f, (float) Math.toRadians(208.0), (float) Math.toRadians(152.0), 10.0f, 12.0f);
     private Vec2[] bumpers;
+    private Vec2[] bumperSlots;
+    private int[] placedPartTypes;
     private int[] bumperValues;
     private float[] bumperGlow;
+    private List<Rail> placedRails = Collections.emptyList();
     private List<Rail> rails;
     private List<Vec2> orbitPath = buildOrbitPath(STARTING_LEVEL);
     private List<ScoringRail> obstacles;
@@ -102,6 +116,11 @@ public final class GameSimulation {
     private boolean orbitScored;
     private int coins;
     private boolean shopOpen;
+    private boolean placementMode;
+    private int bumperInventory;
+    private int railInventory;
+    private int placementSelection;
+    private int placementPartType = PART_BUMPER;
     private int shopSelection;
     private int shopRefreshCost = 1;
     private int[] shopOptions = {0, 1, 2};
@@ -114,6 +133,8 @@ public final class GameSimulation {
     private float comboTimer;
 
     public GameSimulation() {
+        bumperInventory = STARTING_BUMPER_PARTS;
+        railInventory = STARTING_RAIL_PARTS;
         generateLevelLayout();
     }
 
@@ -244,6 +265,106 @@ public final class GameSimulation {
         generateLevelLayout();
     }
 
+    public boolean placementMode() {
+        return placementMode;
+    }
+
+    public int bumperInventory() {
+        return bumperInventory;
+    }
+
+    public int railInventory() {
+        return railInventory;
+    }
+
+    public int placementSelection() {
+        return placementSelection;
+    }
+
+    public boolean bumperSlotOccupied(int slot) {
+        return slotPartType(slot) == PART_BUMPER;
+    }
+
+    public int slotPartType(int slot) {
+        return placedPartTypes != null && slot >= 0 && slot < placedPartTypes.length
+                ? placedPartTypes[slot] : PART_EMPTY;
+    }
+
+    public int placementPartType() {
+        return placementPartType;
+    }
+
+    public int placementPartInventory() {
+        return placementPartType == PART_RAIL ? railInventory : bumperInventory;
+    }
+
+    public List<Rail> placedRails() {
+        return placedRails;
+    }
+
+    public Rail placementRail(int slot) {
+        if (slot < 0 || slot >= bumperSlots.length) {
+            throw new IllegalArgumentException("Unknown placement slot: " + slot);
+        }
+        Vec2 center = bumperSlots[slot];
+        return new Rail(new Vec2(center.x(), center.y() - PLACED_RAIL_HALF_LENGTH),
+                new Vec2(center.x(), center.y() + PLACED_RAIL_HALF_LENGTH),
+                PLACED_RAIL_RADIUS);
+    }
+
+    public void movePlacementSelection(int direction) {
+        if (!placementMode || bumperSlots.length == 0) {
+            return;
+        }
+        placementSelection = Math.floorMod(placementSelection + direction, bumperSlots.length);
+    }
+
+    public void movePlacementPartType(int direction) {
+        if (!placementMode) {
+            return;
+        }
+        placementPartType = Math.floorMod(placementPartType + direction, 2);
+    }
+
+    public boolean placeSelectedPart() {
+        if (!placementMode || slotPartType(placementSelection) != PART_EMPTY
+                || placementPartInventory() == 0
+                || !isPlacementAvailable(placementSelection, placementPartType)) {
+            return false;
+        }
+        placedPartTypes[placementSelection] = placementPartType;
+        if (placementPartType == PART_RAIL) {
+            railInventory--;
+        } else {
+            bumperInventory--;
+        }
+        refreshActiveParts();
+        return true;
+    }
+
+    public boolean removeSelectedPart() {
+        int partType = slotPartType(placementSelection);
+        if (!placementMode || partType == PART_EMPTY) {
+            return false;
+        }
+        placedPartTypes[placementSelection] = PART_EMPTY;
+        if (partType == PART_RAIL) {
+            railInventory++;
+        } else {
+            bumperInventory++;
+        }
+        refreshActiveParts();
+        return true;
+    }
+
+    public void startPlacement() {
+        if (!placementMode) {
+            return;
+        }
+        placementMode = false;
+        refreshActiveParts();
+    }
+
     private void collideWithObstacles() {
         for (int index = 0; index < obstacles.size(); index++) {
             Rail rail = obstacles.get(index).rail();
@@ -331,6 +452,11 @@ public final class GameSimulation {
                 rails.add(new Rail(new Vec2(440.0f, 740.0f), new Vec2(560.0f, 850.0f), RAIL_RADIUS, true));
                 rails.add(new Rail(new Vec2(285.0f, 600.0f), new Vec2(435.0f, 600.0f), RAIL_RADIUS, true));
             }
+            case 5 -> {
+                rails.add(new Rail(new Vec2(125.0f, 900.0f), new Vec2(245.0f, 820.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(475.0f, 820.0f), new Vec2(595.0f, 900.0f), RAIL_RADIUS, true));
+                rails.add(new Rail(new Vec2(180.0f, 610.0f), new Vec2(540.0f, 610.0f), RAIL_RADIUS, true));
+            }
             default -> throw new IllegalArgumentException("Unknown table: " + table);
         }
     }
@@ -370,6 +496,15 @@ public final class GameSimulation {
                 path.add(new Vec2(360.0f, 900.0f));
                 path.add(new Vec2(480.0f, 900.0f));
                 path.add(new Vec2(555.0f, 820.0f));
+            }
+            case 5 -> {
+                path.add(new Vec2(360.0f, 340.0f));
+                path.add(new Vec2(220.0f, 470.0f));
+                path.add(new Vec2(150.0f, 640.0f));
+                path.add(new Vec2(250.0f, 790.0f));
+                path.add(new Vec2(360.0f, 930.0f));
+                path.add(new Vec2(470.0f, 790.0f));
+                path.add(new Vec2(570.0f, 640.0f));
             }
             default -> throw new IllegalArgumentException("Unknown table: " + table);
         }
@@ -484,15 +619,37 @@ public final class GameSimulation {
         int table = table();
         rails = buildRails(table);
         orbitPath = buildOrbitPath(table);
-        bumpers = switch (table) {
+        bumperSlots = switch (table) {
             case 1 -> new Vec2[]{new Vec2(170.0f, 650.0f), new Vec2(350.0f, 650.0f), new Vec2(500.0f, 650.0f)};
             case 2 -> new Vec2[]{new Vec2(170.0f, 620.0f), new Vec2(330.0f, 700.0f), new Vec2(520.0f, 560.0f)};
             case 3 -> new Vec2[]{new Vec2(160.0f, 560.0f), new Vec2(360.0f, 760.0f), new Vec2(540.0f, 560.0f)};
             case 4 -> new Vec2[]{new Vec2(165.0f, 540.0f), new Vec2(360.0f, 820.0f), new Vec2(520.0f, 620.0f)};
+            case 5 -> new Vec2[]{
+                    new Vec2(90.0f, 420.0f), new Vec2(185.0f, 420.0f), new Vec2(280.0f, 420.0f),
+                    new Vec2(375.0f, 420.0f), new Vec2(470.0f, 420.0f), new Vec2(565.0f, 420.0f),
+                    new Vec2(90.0f, 700.0f), new Vec2(185.0f, 700.0f), new Vec2(280.0f, 700.0f),
+                    new Vec2(375.0f, 700.0f), new Vec2(470.0f, 700.0f), new Vec2(565.0f, 700.0f),
+                    new Vec2(90.0f, 780.0f), new Vec2(185.0f, 780.0f), new Vec2(280.0f, 780.0f),
+                    new Vec2(375.0f, 780.0f), new Vec2(510.0f, 780.0f), new Vec2(565.0f, 780.0f),
+                    new Vec2(110.0f, 940.0f), new Vec2(190.0f, 940.0f), new Vec2(310.0f, 940.0f),
+                    new Vec2(390.0f, 940.0f), new Vec2(470.0f, 940.0f), new Vec2(550.0f, 940.0f)
+            };
             default -> throw new IllegalStateException("Unknown table: " + table);
         };
         bumperValues = new int[]{20, 25, 30};
-        bumperGlow = new float[bumpers.length];
+        if (table == 5) {
+            if (placedPartTypes == null || placedPartTypes.length != bumperSlots.length) {
+                placedPartTypes = new int[bumperSlots.length];
+                java.util.Arrays.fill(placedPartTypes, PART_EMPTY);
+            }
+            placementSelection = Math.min(placementSelection, bumperSlots.length - 1);
+            placementMode = true;
+        } else {
+            bumpers = placeBumpersInSlots(bumperSlots, 3);
+            bumperGlow = new float[bumpers.length];
+            placementMode = false;
+        }
+        refreshActiveParts();
 
         List<ScoringRail> generated = new ArrayList<>();
         switch (table) {
@@ -512,6 +669,10 @@ public final class GameSimulation {
                 generated.add(new ScoringRail(createScoringRail(250.0f, 500.0f, 90.0f, 0.35f), 40));
                 generated.add(new ScoringRail(createScoringRail(450.0f, 520.0f, 90.0f, -0.35f), 40));
             }
+            case 5 -> {
+                generated.add(new ScoringRail(createScoringRail(235.0f, 500.0f, 100.0f, 0.0f), 45));
+                generated.add(new ScoringRail(createScoringRail(485.0f, 500.0f, 100.0f, 0.0f), 45));
+            }
             default -> throw new IllegalStateException("Unknown table: " + table);
         }
         validateLayout(generated, table);
@@ -519,9 +680,123 @@ public final class GameSimulation {
         scoringRailContacts = new boolean[generated.size()];
     }
 
+    private boolean isCustomBumperClear(Vec2 candidate, List<ScoringRail> scoringRails) {
+        if (candidate.x() < CUSTOM_SLOT_MIN_X || candidate.x() > CUSTOM_SLOT_MAX_X
+                || candidate.y() < CUSTOM_SLOT_MIN_Y || candidate.y() > CUSTOM_SLOT_MAX_Y) {
+            return false;
+        }
+        for (Rail rail : rails) {
+            if (isPointNearRail(candidate, rail, BUMPER_RADIUS + rail.radius() + SCORING_RAIL_CLEARANCE)) {
+                return false;
+            }
+        }
+        for (ScoringRail obstacle : scoringRails) {
+            if (isPointNearRail(candidate, obstacle.rail(),
+                    BUMPER_RADIUS + obstacle.rail().radius() + SCORING_RAIL_CLEARANCE)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void refreshActiveParts() {
+        if (table() == 5) {
+            int bumperCount = 0;
+            List<Rail> rails = new ArrayList<>();
+            for (int slot = 0; slot < placedPartTypes.length; slot++) {
+                if (placedPartTypes[slot] == PART_BUMPER) {
+                    bumperCount++;
+                } else if (placedPartTypes[slot] == PART_RAIL) {
+                    rails.add(placementRail(slot));
+                }
+            }
+            bumpers = new Vec2[bumperCount];
+            int bumperIndex = 0;
+            for (int slot = 0; slot < placedPartTypes.length; slot++) {
+                if (placedPartTypes[slot] == PART_BUMPER) {
+                    bumpers[bumperIndex++] = bumperSlots[slot];
+                }
+            }
+            placedRails = Collections.unmodifiableList(rails);
+        } else {
+            placedRails = Collections.emptyList();
+        }
+        bumperGlow = new float[bumpers.length];
+    }
+
+    private boolean isPlacementAvailable(int slot, int partType) {
+        if (slot < 0 || slot >= bumperSlots.length || slotPartType(slot) != PART_EMPTY) {
+            return false;
+        }
+        Vec2 center = bumperSlots[slot];
+        if (center.x() < CUSTOM_SLOT_MIN_X || center.x() > CUSTOM_SLOT_MAX_X
+                || center.y() < CUSTOM_SLOT_MIN_Y || center.y() > CUSTOM_SLOT_MAX_Y) {
+            return false;
+        }
+        if (partType == PART_BUMPER) {
+            for (Rail rail : rails) {
+                if (isPointNearRail(center, rail, BUMPER_RADIUS + rail.radius() + SCORING_RAIL_CLEARANCE)) {
+                    return false;
+                }
+            }
+            for (ScoringRail obstacle : obstacles) {
+                if (isPointNearRail(center, obstacle.rail(), BUMPER_RADIUS
+                        + obstacle.rail().radius() + SCORING_RAIL_CLEARANCE)) {
+                    return false;
+                }
+            }
+        } else if (partType == PART_RAIL) {
+            Rail candidate = placementRail(slot);
+            for (Rail rail : rails) {
+                if (isRailNearRail(candidate, rail,
+                        PLACED_RAIL_RADIUS + rail.radius() + SCORING_RAIL_CLEARANCE)) {
+                    return false;
+                }
+            }
+            for (ScoringRail obstacle : obstacles) {
+                if (isRailNearRail(candidate, obstacle.rail(),
+                        PLACED_RAIL_RADIUS + obstacle.rail().radius() + SCORING_RAIL_CLEARANCE)) {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+        for (int otherSlot = 0; otherSlot < placedPartTypes.length; otherSlot++) {
+            if (placedPartTypes[otherSlot] == PART_EMPTY || otherSlot == slot) {
+                continue;
+            }
+            float clearance = partType == PART_BUMPER ? BUMPER_RADIUS : PLACED_RAIL_RADIUS;
+            float otherClearance = placedPartTypes[otherSlot] == PART_BUMPER
+                    ? BUMPER_RADIUS : PLACED_RAIL_RADIUS;
+            if (center.subtract(bumperSlots[otherSlot]).length()
+                    < clearance + otherClearance + SCORING_RAIL_CLEARANCE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isRailNearRail(Rail first, Rail second, float clearance) {
+        return isPointNearRail(first.a(), second, clearance)
+                || isPointNearRail(first.b(), second, clearance)
+                || isPointNearRail(second.a(), first, clearance)
+                || isPointNearRail(second.b(), first, clearance);
+    }
+
+    private static Vec2[] placeBumpersInSlots(Vec2[] slots, int count) {
+        if (count < 0 || count > slots.length) {
+            throw new IllegalArgumentException("Bumper count must fit within the available slots");
+        }
+        Vec2[] placed = new Vec2[count];
+        System.arraycopy(slots, 0, placed, 0, count);
+        return placed;
+    }
+
     private void validateLayout(List<ScoringRail> scoringRails, int table) {
         for (int index = 0; index < bumpers.length; index++) {
-            if (!isBumperPositionAvailable(bumpers[index], index)) {
+            if (table == 5 ? !isCustomBumperClear(bumpers[index], scoringRails)
+                    : !isBumperPositionAvailable(bumpers[index], index)) {
                 throw new IllegalStateException("Invalid bumper placement on table " + table);
             }
             for (Rail rail : rails) {
@@ -540,6 +815,20 @@ public final class GameSimulation {
                 if (isPointNearRail(scoringRails.get(index).rail().a(), rail, SCORING_RAIL_CLEARANCE)
                         || isPointNearRail(scoringRails.get(index).rail().b(), rail, SCORING_RAIL_CLEARANCE)) {
                     throw new IllegalStateException("Scoring rail overlaps table rail on table " + table);
+                }
+            }
+            for (Rail placedRail : placedRails) {
+                for (Rail rail : rails) {
+                    if (isRailNearRail(placedRail, rail,
+                            placedRail.radius() + rail.radius() + SCORING_RAIL_CLEARANCE)) {
+                        throw new IllegalStateException("Placed rail overlaps table rail on table " + table);
+                    }
+                }
+                for (ScoringRail obstacle : scoringRails) {
+                    if (isRailNearRail(placedRail, obstacle.rail(),
+                            placedRail.radius() + obstacle.rail().radius() + SCORING_RAIL_CLEARANCE)) {
+                        throw new IllegalStateException("Placed rail overlaps scoring rail on table " + table);
+                    }
                 }
             }
         }
@@ -674,6 +963,7 @@ public final class GameSimulation {
                 rail.collide(ball, RESTITUTION);
             }
         }
+        collideWithPlacedRails();
         collideWithBumpers();
         leftFlipper.collide(ball);
         rightFlipper.collide(ball);
@@ -713,6 +1003,12 @@ public final class GameSimulation {
         orbitScored = false;
         coins = 0;
         shopOpen = false;
+        placementMode = false;
+        bumperInventory = STARTING_BUMPER_PARTS;
+        railInventory = STARTING_RAIL_PARTS;
+        placementSelection = 0;
+        placementPartType = PART_BUMPER;
+        placedPartTypes = null;
         shopSelection = 0;
         shopRefreshCost = 1;
         shopOptions = freshShopOptions(level);
@@ -871,6 +1167,12 @@ public final class GameSimulation {
         }
     }
 
+    private void collideWithPlacedRails() {
+        for (Rail rail : placedRails) {
+            rail.collide(ball, RESTITUTION);
+        }
+    }
+
     public Ball ball() {
         return ball;
     }
@@ -885,6 +1187,10 @@ public final class GameSimulation {
 
     public Vec2[] bumpers() {
         return bumpers.clone();
+    }
+
+    public Vec2[] bumperSlots() {
+        return bumperSlots.clone();
     }
 
     public int bumperValue(int index) {

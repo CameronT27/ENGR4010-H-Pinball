@@ -139,6 +139,13 @@ public final class Main {
             boolean shopBuyWasPressed = false;
             boolean shopRefreshWasPressed = false;
             boolean shopLeaveWasPressed = false;
+            boolean placementUpWasPressed = false;
+            boolean placementDownWasPressed = false;
+            boolean placementPlaceWasPressed = false;
+            boolean placementRemoveWasPressed = false;
+            boolean placementStartWasPressed = false;
+            boolean placementPartLeftWasPressed = false;
+            boolean placementPartRightWasPressed = false;
             boolean showingIntro = true;
             boolean showingLevelTransition = false;
             float levelTransitionTime = 0.0f;
@@ -171,6 +178,32 @@ public final class Main {
                 boolean shopBuyPressed = isPressed(window, GLFW_KEY_B);
                 boolean shopRefreshPressed = isPressed(window, GLFW_KEY_F);
                 boolean shopLeavePressed = isPressed(window, GLFW_KEY_ENTER);
+                boolean placementRemovePressed = isPressed(window, GLFW_KEY_X);
+                boolean placementPartLeftPressed = isPressed(window, GLFW_KEY_A);
+                boolean placementPartRightPressed = isPressed(window, GLFW_KEY_D);
+                if (!showingIntro && !showingLevelTransition && simulation.placementMode()) {
+                    if (shopUpPressed && !placementUpWasPressed) {
+                        simulation.movePlacementSelection(-1);
+                    }
+                    if (shopDownPressed && !placementDownWasPressed) {
+                        simulation.movePlacementSelection(1);
+                    }
+                    if (shopBuyPressed && !placementPlaceWasPressed) {
+                        simulation.placeSelectedPart();
+                    }
+                    if (placementRemovePressed && !placementRemoveWasPressed) {
+                        simulation.removeSelectedPart();
+                    }
+                    if (placementPartLeftPressed && !placementPartLeftWasPressed) {
+                        simulation.movePlacementPartType(-1);
+                    }
+                    if (placementPartRightPressed && !placementPartRightWasPressed) {
+                        simulation.movePlacementPartType(1);
+                    }
+                    if (shopLeavePressed && !placementStartWasPressed) {
+                        simulation.startPlacement();
+                    }
+                }
                 if (!showingIntro && simulation.shopOpen()) {
                     if (shopUpPressed && !shopUpWasPressed) {
                         simulation.moveShopSelection(-1);
@@ -193,6 +226,13 @@ public final class Main {
                 shopBuyWasPressed = shopBuyPressed;
                 shopRefreshWasPressed = shopRefreshPressed;
                 shopLeaveWasPressed = shopLeavePressed;
+                placementUpWasPressed = shopUpPressed;
+                placementDownWasPressed = shopDownPressed;
+                placementPlaceWasPressed = shopBuyPressed;
+                placementRemoveWasPressed = placementRemovePressed;
+                placementStartWasPressed = shopLeavePressed;
+                placementPartLeftWasPressed = placementPartLeftPressed;
+                placementPartRightWasPressed = placementPartRightPressed;
                 boolean enterPressed = isPressed(window, GLFW_KEY_ENTER);
                 if (showingIntro && enterPressed && !enterWasPressed) {
                     showingIntro = false;
@@ -208,6 +248,9 @@ public final class Main {
 
                 if (!showingIntro && simulation.shopOpen()) {
                     glfwSetWindowTitle(window, "2.5D Pinball | SHOP | Coins: " + simulation.coins());
+                } else if (!showingIntro && simulation.placementMode()) {
+                    glfwSetWindowTitle(window, "2.5D Pinball | PLACE PARTS | Bumpers: "
+                            + simulation.bumperInventory() + " | Rails: " + simulation.railInventory());
                 } else if (!showingIntro && !showingLevelTransition) {
                     simulation.update(deltaSeconds, input);
                     audio.update(simulation, input);
@@ -335,6 +378,9 @@ public final class Main {
         drawPowerMeter(simulation);
         drawBackboardOverlay(simulation);
         drawFrontMachineOverlay(simulation);
+        if (simulation.placementMode()) {
+            drawPlacementOverlay(simulation);
+        }
 
         if (simulation.gameOver()) {
             drawGameOverOverlay(simulation);
@@ -948,6 +994,12 @@ public final class Main {
                 capsule(rail.a(), rail.b(), rail.radius());
             }
         }
+        for (Rail rail : simulation.placedRails()) {
+            color(0.02f, 0.06f, 0.08f, 1.0f);
+            capsule(rail.a(), rail.b(), rail.radius() + 3.0f);
+            color(0.55f, 0.88f, 0.95f, 1.0f);
+            capsule(rail.a(), rail.b(), rail.radius());
+        }
         drawOrbitRails(simulation);
     }
 
@@ -971,6 +1023,22 @@ public final class Main {
     }
 
     private static void drawBumpers(GameSimulation simulation) {
+        if (simulation.table() == 5 && simulation.placementMode()) {
+            Vec2[] slots = simulation.bumperSlots();
+            for (int index = 0; index < slots.length; index++) {
+                Vec2 slot = slots[index];
+                color(0.10f, 0.70f, 0.72f, 0.22f);
+                circle(slot.x(), slot.y(), 11.0f);
+                color(0.20f, 0.88f, 0.82f, 0.75f);
+                circle(slot.x(), slot.y(), 7.0f);
+                color(0.02f, 0.14f, 0.16f, 1.0f);
+                circle(slot.x(), slot.y(), 3.0f);
+                if (simulation.placementMode() && index == simulation.placementSelection()) {
+                    color(1.0f, 0.92f, 0.30f, 0.38f);
+                    circle(slot.x(), slot.y(), 15.0f);
+                }
+            }
+        }
         Vec2[] bumpers = simulation.bumpers();
         for (int index = 0; index < bumpers.length; index++) {
             Vec2 bumper = bumpers[index];
@@ -989,6 +1057,62 @@ public final class Main {
                     bumper.x() - 7.0f, bumper.y() - 7.0f, 1.5f,
                     0.12f, 0.08f, 0.02f, 1.0f);
         }
+        if (simulation.placementMode()) {
+            Vec2 selected = simulation.bumperSlots()[simulation.placementSelection()];
+            if (simulation.slotPartType(simulation.placementSelection()) == GameSimulation.PART_EMPTY
+                    && simulation.placementPartInventory() > 0) {
+                if (simulation.placementPartType() == GameSimulation.PART_RAIL) {
+                    Rail preview = simulation.placementRail(simulation.placementSelection());
+                    color(0.55f, 0.88f, 0.95f, 0.45f);
+                    capsule(preview.a(), preview.b(), preview.radius() + 2.0f);
+                } else {
+                    color(1.0f, 0.78f, 0.20f, 0.42f);
+                    circle(selected.x(), selected.y(), 28.0f);
+                }
+            }
+            color(1.0f, 0.92f, 0.30f, 0.30f);
+            circle(selected.x(), selected.y(), 17.0f);
+        }
+    }
+
+    private static void drawPlacementOverlay(GameSimulation simulation) {
+        glDisable(GL_DEPTH_TEST);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+
+        float panelLeft = WINDOW_WIDTH * 0.08f;
+        float panelRight = WINDOW_WIDTH * 0.92f;
+        float panelBottom = WINDOW_HEIGHT * 0.15f;
+        float panelTop = WINDOW_HEIGHT * 0.30f;
+        color(0.01f, 0.04f, 0.05f, 0.92f);
+        rect(panelLeft, panelBottom, panelRight, panelTop);
+        color(0.20f, 0.88f, 0.82f, 0.90f);
+        rect(panelLeft, panelTop - 5.0f, panelRight, panelTop);
+        drawCenteredText("PLACE PARTS", WINDOW_WIDTH * 0.50f, panelTop - 35.0f,
+                2.8f, 0.95f, 0.85f, 0.30f, 1.0f);
+        drawText("INVENTORY",
+                panelLeft + 22.0f, panelTop - 74.0f,
+                2.0f, 0.85f, 0.95f, 0.95f, 1.0f);
+        drawText("BUMP " + simulation.bumperInventory()
+                        + "  RAIL " + simulation.railInventory(),
+                panelLeft + 230.0f, panelTop - 74.0f,
+                1.7f, 0.85f, 0.95f, 0.95f, 1.0f);
+        drawText("SELECTED " + (simulation.placementPartType() == GameSimulation.PART_RAIL
+                        ? "RAIL" : "BUMPER"),
+                panelLeft + 230.0f, panelTop - 104.0f,
+                1.55f, 0.95f, 0.85f, 0.30f, 1.0f);
+        drawText("SLOT " + (simulation.placementSelection() + 1)
+                        + "  " + (simulation.bumperSlotOccupied(simulation.placementSelection())
+                        ? "OCCUPIED" : "OPEN"),
+                panelLeft + 22.0f, panelTop - 104.0f,
+                1.7f, 0.95f, 0.85f, 0.30f, 1.0f);
+        drawText("UP DOWN SLOT   A D PART   B PLACE   X REMOVE   ENTER START",
+                panelLeft + 22.0f, panelBottom + 18.0f,
+                1.45f, 0.82f, 0.90f, 0.92f, 1.0f);
+        glEnable(GL_DEPTH_TEST);
     }
 
     private static void drawFlippers(GameSimulation simulation) {

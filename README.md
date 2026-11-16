@@ -11,20 +11,22 @@ launch power. The launch follows a curved guide into the playfield, after
 which gravity and collisions take over. Bumper hits increase the score, and
 draining the ball between the flippers uses one of three balls.
 
-The game has four fixed table layouts built around different active rail
+The game has five fixed table layouts built around different active rail
 routes. Table 1 uses a rising central fork, table 2 uses staggered diagonals
 for alternating shots, table 3 uses offset shelves for broad cross-table
 routes, and table 4 enters from the left, climbs around the upper playfield,
 crosses the top, and exits at the upper-right before sending the ball downward
-into a bumper. Each table uses three deliberately placed bumpers and two
-scoring rails. The HUD shows both the current table and the overall
-progression.
+into a bumper. Table 5 is a bumper-placement test table with 24 small slots
+spread across the playable area. The slots start empty and a fresh run supplies
+three circular bumper pieces and two line-rail pieces. The player chooses which
+slots to fill before starting play. The HUD shows both the current table and
+the overall progression.
 
-Progression advances from 1 to 2 to 3 to 4 and then selects tables 1, 2, 3,
-and 4 again. The score target continues increasing across the loop (350, 700,
-1050, 1400, and so on), while the current-level score resets to zero when a new
-table is loaded. The total score remains accumulated. Resetting with `R` starts
-a new game at progression 1, table 1.
+Progression advances from 1 to 2 to 3 to 4 to 5 and then selects tables 1, 2,
+3, 4, and 5 again. The score target continues increasing across the loop (350,
+700, 1050, 1400, and so on), while the current-level score resets to zero when
+a new table is loaded. The total score remains accumulated. Resetting with `R`
+starts a new game at progression 1, table 1.
 
 Online connectivity is intentionally out of scope for the first MVP. The team
 can revisit networking after the local game is stable and distributable.
@@ -46,7 +48,7 @@ developer assistance:
 
 Features such as additional tables, game modes, multiplayer, and advanced
 visual effects are deferred until this checklist is reliable. The current
-prototype includes scoring progression, four hand-designed table layouts,
+prototype includes scoring progression, five hand-designed table layouts,
 and a point power-up.
 
 Gameplay sound effects are generated at runtime, so no separate audio files are
@@ -139,7 +141,20 @@ Each package must be built on its target operating system because LWJGL includes
 - `Escape`: close the game window
 
 The flippers, launcher, nudge controls, scoring, sound feedback, ball count,
-and game-over behavior are shared across all four tables.
+and game-over behavior are shared across all five tables.
+
+## Table 5 board customization
+
+When Table 5 begins, play is paused in placement mode. Use `Up` / `Down` to
+select one of the 24 slots, `A` / `D` to choose between the circular bumper and
+line-rail part, `B` to place the selected available part, and `X` to remove the
+part from the selected slot. Press `Enter` to start the table. Slot markers are
+small and visible only during editing; placed bumpers retain their normal size,
+and line parts become solid deflecting rails during play. Placement edits are
+accepted only before play starts. The overlay shows both inventories and the
+selected part. The selected board configuration and unused inventory persist
+across table transitions during the current run. Resetting with `R` clears the
+board and restores the three bumper and two rail test parts.
 
 ## Between-level shop
 
