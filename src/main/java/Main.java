@@ -275,6 +275,7 @@ public final class Main {
         drawBackboardDisplay(simulation);
         drawLaneArt();
         drawRails(simulation);
+        drawSlingshots(simulation);
         drawBumpers(simulation);
         drawPointPowerUp(simulation);
         drawFlippers(simulation);
@@ -612,6 +613,28 @@ public final class Main {
                 color(0.30f, 0.88f, 0.80f, 1.0f);
                 capsule(rail.a(), rail.b(), rail.radius());
             }
+        }
+    }
+
+    private static void drawSlingshots(GameSimulation simulation) {
+        for (Slingshot s : simulation.slingshots()) {
+            // Dark outline
+            color(0.02f, 0.10f, 0.12f, 1.0f);
+            triangle(
+                    new Vec2(s.a().x(), s.a().y()),
+                    new Vec2(s.b().x(), s.b().y()),
+                    new Vec2(s.c().x(), s.c().y()));
+            // Bright fill
+            color(1.0f, 0.33f, 0.45f, 0.85f);
+            triangle(
+                    new Vec2(s.a().x(), s.a().y()),
+                    new Vec2(s.b().x(), s.b().y()),
+                    new Vec2(s.c().x(), s.c().y()));
+            // Center dot
+            float cx = (s.a().x() + s.b().x() + s.c().x()) / 3f;
+            float cy = (s.a().y() + s.b().y() + s.c().y()) / 3f;
+            color(0.95f, 0.75f, 0.20f, 1.0f);
+            circle(cx, cy, 6.0f);
         }
     }
 

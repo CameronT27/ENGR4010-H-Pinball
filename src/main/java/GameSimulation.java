@@ -1,7 +1,9 @@
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 public final class GameSimulation {
     // ---- Table layout (shared with Main so the drawing always matches the physics) ----
@@ -70,6 +72,7 @@ public final class GameSimulation {
     private List<ScoringRail> obstacles;
     private boolean[] scoringRailContacts;
     private final List<Rail> launcherGate = buildLauncherGate();
+    private final List<Slingshot> slingshots = buildSlingshots();
 
     private boolean ballInLauncher = true;
     private boolean launcherGateClosed;
@@ -92,6 +95,7 @@ public final class GameSimulation {
     private boolean kickerEvent;
     private boolean drainEvent;
     private boolean levelUpEvent;
+    private final Set<Relic> activeRelics = EnumSet.noneOf(Relic.class);
 
     public GameSimulation() {
         generateLevelLayout();
@@ -130,13 +134,18 @@ public final class GameSimulation {
             return;
         }
         bumperHitsSincePowerUp++;
-        if (bumperHitsSincePowerUp >= POWER_UP_BUMPER_HIT_REQUIREMENT) {
+        int hitRequirement = hasRelic(Relic.POWERUP_ATTRACTOR) ? 5 : POWER_UP_BUMPER_HIT_REQUIREMENT;
+        if (bumperHitsSincePowerUp >= hitRequirement) {
             Vec2 spawnedPowerUp = randomPowerUpPosition(new Random());
             if (spawnedPowerUp != null) {
                 pointPowerUp = spawnedPowerUp;
                 bumperHitsSincePowerUp = 0;
             }
         }
+    }
+
+    private boolean hasRelic(Relic relic) {
+        return activeRelics.contains(relic);
     }
 
     private List<Rail> buildRails() {
@@ -205,6 +214,38 @@ public final class GameSimulation {
         return Collections.singletonList(new Rail(start, end, RAIL_RADIUS));
     }
 
+    private static List<Slingshot> buildSlingshots() {
+        List<Slingshot> list = new ArrayList<>();
+        float flipperY = FLIPPER_PIVOT_Y;
+        float centerX = PLAYFIELD_CENTER_X;
+        float width = 80f;
+        float height = 60f;
+        float kick = 900f;
+
+        // Left slingshot (triangle pointing right-up)
+        list.add(new Slingshot(
+                new Vec2(centerX - width, flipperY - 40),
+                new Vec2(centerX - width + 40, flipperY - height),
+                new Vec2(centerX - width + 40, flipperY + 20),
+                kick, 10));
+
+        // Right slingshot (mirrored, pointing left-up)
+        list.add(new Slingshot(
+                new Vec2(centerX + width, flipperY - 40),
+                new Vec2(centerX + width - 40, flipperY - height),
+                new Vec2(centerX + width - 40, flipperY + 20),
+                kick, 10));
+
+        // Top slingshot near bumpers (points down)
+        list.add(new Slingshot(
+                new Vec2(centerX - 60, 700),
+                new Vec2(centerX, 640),
+                new Vec2(centerX + 60, 700),
+                700f, 15));
+
+        return Collections.unmodifiableList(list);
+    }
+
     private static Vec2[] mirrorPoints(Vec2[] points) {
         Vec2[] mirrored = new Vec2[points.length];
         for (int index = 0; index < points.length; index++) {
@@ -221,13 +262,16 @@ public final class GameSimulation {
         bumperValues = new int[bumperCount];
         bumperGlow = new float[bumperCount];
 
+        // Generate bumpers first using Poisson disk for even distribution
+        List<Vec2> bumperPositions = generateBumperPositions(random, bumperCount);
         for (int index = 0; index < bumperCount; index++) {
-            bumpers[index] = randomBumperPosition(random, index);
+            bumpers[index] = bumperPositions.get(index);
             bumperValues[index] = 15 + random.nextInt(4) * 5;
         }
         pointPowerUp = null;
         bumperHitsSincePowerUp = 0;
 
+        // Generate scoring rails avoiding bumpers (and each other)
         List<ScoringRail> generated = new ArrayList<>();
         int obstacleCount = Math.min(level - 1, 4);
         for (int index = 0; index < obstacleCount; index++) {
@@ -239,6 +283,108 @@ public final class GameSimulation {
         }
         obstacles = Collections.unmodifiableList(generated);
         scoringRailContacts = new boolean[generated.size()];
+    }
+
+    /** Poisson disk sampling for well-distributed bumper positions. */
+    private List<Vec2> generateBumperPositions(Random random, int count) {
+        List<Vec2> positions = new ArrayList<>();
+        List<Vec2> active = new ArrayList<>();
+
+        // Valid playfield bounds for bumpers
+        float minX = BUMPER_MIN_X;
+        float maxX = BUMPER_MAX_X;
+        float minY = BUMPER_MIN_Y;
+        float maxY = BUMPER_MAX_Y;
+
+        // First position: random in valid area
+        Vec2 first = randomValidPosition(random, minX, maxX, minY, maxY);
+        positions.add(first);
+        active.add(first);
+
+        final int MAX_ATTEMPTS_PER_ACTIVE = 30;
+
+        while (!active.isEmpty() && positions.size() < count) {
+            int activeIndex = random.nextInt(active.size());
+            Vec2 base = active.get(activeIndex);
+            boolean found = false;
+
+            for (int attempt = 0; attempt < MAX_ATTEMPTS_PER_ACTIVE; attempt++) {
+                // Random angle, radius between MIN_BUMPER_SPACING and 2x that
+                double angle = random.nextDouble() * 2.0 * Math.PI;
+                float radius = MIN_BUMPER_SPACING + random.nextFloat() * MIN_BUMPER_SPACING;
+                float x = base.x() + (float) (Math.cos(angle) * radius);
+                float y = base.y() + (float) (Math.sin(angle) * radius);
+
+                Vec2 candidate = new Vec2(x, y);
+                if (isBumperPositionValid(candidate, minX, maxX, minY, maxY, positions)) {
+                    positions.add(candidate);
+                    active.add(candidate);
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                active.remove(activeIndex);
+            }
+        }
+
+        // Fallback: if Poisson disk didn't place enough, fill from grid
+        if (positions.size() < count) {
+            for (float y = minY; y <= maxY && positions.size() < count; y += MIN_BUMPER_SPACING) {
+                for (float x = minX; x <= maxX && positions.size() < count; x += MIN_BUMPER_SPACING) {
+                    Vec2 candidate = new Vec2(x, y);
+                    if (isBumperPositionValid(candidate, minX, maxX, minY, maxY, positions)) {
+                        positions.add(candidate);
+                    }
+                }
+            }
+        }
+
+        // Shuffle so bumpers aren't in generation order
+        Collections.shuffle(positions, random);
+        return positions.subList(0, Math.min(count, positions.size()));
+    }
+
+    private Vec2 randomValidPosition(Random random, float minX, float maxX, float minY, float maxY) {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            Vec2 candidate = new Vec2(
+                    minX + random.nextFloat() * (maxX - minX),
+                    minY + random.nextFloat() * (maxY - minY));
+            if (isBumperPositionValid(candidate, minX, maxX, minY, maxY, List.of())) {
+                return candidate;
+            }
+        }
+        // Should never happen, but fallback to center
+        return new Vec2((minX + maxX) * 0.5f, (minY + maxY) * 0.5f);
+    }
+
+    private boolean isBumperPositionValid(Vec2 candidate, float minX, float maxX, float minY, float maxY,
+                                          List<Vec2> existing) {
+        // Bounds check
+        if (candidate.x() < minX || candidate.x() > maxX
+                || candidate.y() < minY || candidate.y() > maxY) {
+            return false;
+        }
+        // Lower middle exclusion (keep flipper area clear)
+        if (candidate.x() > LOWER_MIDDLE_LEFT && candidate.x() < LOWER_MIDDLE_RIGHT
+                && candidate.y() < LOWER_MIDDLE_TOP) {
+            return false;
+        }
+        // Launch exit clearance
+        Vec2 launchExit = new Vec2(LANE_DIVIDER_X, LANE_DIVIDER_TOP);
+        if (candidate.subtract(launchExit).lengthSquared()
+                < LAUNCH_EXIT_CLEARANCE * LAUNCH_EXIT_CLEARANCE) {
+            return false;
+        }
+        // Distance from other bumpers
+        for (Vec2 other : existing) {
+            if (candidate.subtract(other).lengthSquared()
+                    < MIN_BUMPER_SPACING * MIN_BUMPER_SPACING) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private ScoringRail randomScoringRail(Random random, List<ScoringRail> existing) {
@@ -271,7 +417,8 @@ public final class GameSimulation {
     }
 
     private boolean isScoringRailAvailable(Rail candidate, List<ScoringRail> existing) {
-        float bumperClearance = BUMPER_RADIUS + candidate.radius() + SCORING_RAIL_CLEARANCE;
+        // Use same spacing as bumper-to-bumper so rails don't crowd bumpers
+        float bumperClearance = MIN_BUMPER_SPACING;
         for (Vec2 bumper : bumpers) {
             if (bumper.subtract(candidate.closestPoint(bumper)).lengthSquared()
                     < bumperClearance * bumperClearance) {
@@ -293,58 +440,6 @@ public final class GameSimulation {
 
     private static boolean isPointNearRail(Vec2 point, Rail rail, float clearance) {
         return point.subtract(rail.closestPoint(point)).lengthSquared() < clearance * clearance;
-    }
-
-    private Vec2 randomBumperPosition(Random random, int bumperIndex) {
-        for (int attempt = 0; attempt < 100; attempt++) {
-            float x;
-            if (random.nextBoolean()) {
-                x = 100.0f + random.nextFloat() * 100.0f;
-            } else {
-                x = 425.0f + random.nextFloat() * 100.0f;
-            }
-            if (random.nextFloat() < 0.35f) {
-                x = BUMPER_MIN_X + random.nextFloat() * (BUMPER_MAX_X - BUMPER_MIN_X);
-            }
-            float y = 590.0f + random.nextFloat() * (BUMPER_MAX_Y - 590.0f);
-            Vec2 candidate = new Vec2(x, y);
-            if (isBumperPositionAvailable(candidate, bumperIndex)) {
-                return candidate;
-            }
-        }
-        // A deterministic grid keeps generated levels valid even if random attempts cluster.
-        for (float y = BUMPER_MIN_Y; y <= BUMPER_MAX_Y; y += MIN_BUMPER_SPACING) {
-            for (float x = BUMPER_MIN_X; x <= BUMPER_MAX_X; x += MIN_BUMPER_SPACING) {
-                Vec2 candidate = new Vec2(x, y);
-                if (isBumperPositionAvailable(candidate, bumperIndex)) {
-                    return candidate;
-                }
-            }
-        }
-        throw new IllegalStateException("Unable to place non-overlapping bumper " + bumperIndex);
-    }
-
-    private boolean isBumperPositionAvailable(Vec2 candidate, int bumperCount) {
-        if (candidate.x() < BUMPER_MIN_X || candidate.x() > BUMPER_MAX_X
-                || candidate.y() < BUMPER_MIN_Y || candidate.y() > BUMPER_MAX_Y) {
-            return false;
-        }
-        if (candidate.x() > LOWER_MIDDLE_LEFT && candidate.x() < LOWER_MIDDLE_RIGHT
-                && candidate.y() < LOWER_MIDDLE_TOP) {
-            return false;
-        }
-        Vec2 launchExit = new Vec2(LANE_DIVIDER_X, LANE_DIVIDER_TOP);
-        if (candidate.subtract(launchExit).lengthSquared()
-                < LAUNCH_EXIT_CLEARANCE * LAUNCH_EXIT_CLEARANCE) {
-            return false;
-        }
-        for (int index = 0; index < bumperCount; index++) {
-            if (candidate.subtract(bumpers[index]).lengthSquared()
-                    < MIN_BUMPER_SPACING * MIN_BUMPER_SPACING) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private Vec2 randomPowerUpPosition(Random random) {
@@ -450,10 +545,20 @@ public final class GameSimulation {
             }
         }
         collideWithBumpers();
+        collideWithSlingshots();
         collideWithPointPowerUp();
         leftFlipper.collide(ball);
         rightFlipper.collide(ball);
         limitSpeed();
+    }
+
+    private void collideWithSlingshots() {
+        for (Slingshot s : slingshots) {
+            if (s.collide(ball, RESTITUTION, 0f)) {
+                addScore(s.points());
+                bumperEvent = true;
+            }
+        }
     }
 
     private void limitSpeed() {
@@ -486,6 +591,7 @@ public final class GameSimulation {
         ballsRemaining = STARTING_BALLS;
         gameOver = false;
         levelUpEvent = false;
+        activeRelics.clear();
         generateLevelLayout();
     }
 
@@ -559,6 +665,7 @@ public final class GameSimulation {
             ballsRemaining = Math.min(STARTING_BALLS, ballsRemaining + 1);
             generateLevelLayout();
             levelUpEvent = true;
+            grantRandomRelic();
         } else {
             ballsRemaining--;
         }
@@ -566,6 +673,23 @@ public final class GameSimulation {
             gameOver = true;
         }
         returnToLauncher();
+    }
+
+    private void grantRandomRelic() {
+        List<Relic> available = new ArrayList<>();
+        for (Relic relic : Relic.values()) {
+            if (!activeRelics.contains(relic)) {
+                available.add(relic);
+            }
+        }
+        if (!available.isEmpty()) {
+            Relic relic = available.get(new Random().nextInt(available.size()));
+            activeRelics.add(relic);
+        }
+    }
+
+    public Set<Relic> getActiveRelics() {
+        return Collections.unmodifiableSet(activeRelics);
     }
 
     private void returnToLauncher() {
@@ -632,7 +756,8 @@ public final class GameSimulation {
         }
         float minimumDistance = ball.radius() + POWER_UP_RADIUS;
         if (ball.position().subtract(pointPowerUp).lengthSquared() < minimumDistance * minimumDistance) {
-            addScore(POINT_POWER_UP_VALUE);
+            int powerUpValue = hasRelic(Relic.POWERUP_ATTRACTOR) ? 50 : POINT_POWER_UP_VALUE;
+            addScore(powerUpValue);
             pointPowerUp = null;
             bumperHitsSincePowerUp = 0;
         }
@@ -676,6 +801,10 @@ public final class GameSimulation {
 
     public List<ScoringRail> obstacles() {
         return obstacles;
+    }
+
+    public List<Slingshot> slingshots() {
+        return slingshots;
     }
 
     public boolean ballInLauncher() {
