@@ -1091,13 +1091,19 @@ public final class Main {
         rect(panelLeft, panelBottom, panelRight, panelTop);
         color(0.20f, 0.88f, 0.82f, 0.90f);
         rect(panelLeft, panelTop - 5.0f, panelRight, panelTop);
-        drawCenteredText("PLACE PARTS", WINDOW_WIDTH * 0.50f, panelTop - 35.0f,
+        drawCenteredText(simulation.rewardPlacementPending()
+                        ? "REWARD +" + simulation.rewardBumperParts() + " BUMPER +"
+                                + simulation.rewardRailParts() + " RAIL - ARRANGE LOADOUT"
+                        : "PLACE PARTS",
+                WINDOW_WIDTH * 0.50f, panelTop - 35.0f,
                 2.8f, 0.95f, 0.85f, 0.30f, 1.0f);
         drawText("INVENTORY",
                 panelLeft + 22.0f, panelTop - 74.0f,
                 2.0f, 0.85f, 0.95f, 0.95f, 1.0f);
         drawText("BUMP " + simulation.bumperInventory()
-                        + "  RAIL " + simulation.railInventory(),
+                        + " (" + simulation.runPartCount(GameSimulation.PART_BUMPER) + " USED)"
+                        + "  RAIL " + simulation.railInventory()
+                        + " (" + simulation.runPartCount(GameSimulation.PART_RAIL) + " USED)",
                 panelLeft + 230.0f, panelTop - 74.0f,
                 1.7f, 0.85f, 0.95f, 0.95f, 1.0f);
         drawText("SELECTED " + (simulation.placementPartType() == GameSimulation.PART_RAIL

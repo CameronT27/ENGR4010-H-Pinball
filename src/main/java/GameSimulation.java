@@ -39,17 +39,21 @@ public final class GameSimulation {
     private static final float ORBIT_HEIGHT = 105.0f;
     private static final int ORBIT_SCORE = 100;
     private static final float BUMPER_RADIUS = 28.0f;
-    private static final float CUSTOM_SLOT_MIN_X = WALL_LEFT + 34.0f;
-    private static final float CUSTOM_SLOT_MAX_X = LANE_DIVIDER_X - 34.0f;
+    private static final float CUSTOM_SLOT_WALL_CLEARANCE = 28.0f;
+    private static final float CUSTOM_SLOT_MIN_X = WALL_LEFT + BUMPER_RADIUS + CUSTOM_SLOT_WALL_CLEARANCE;
+    private static final float CUSTOM_SLOT_MAX_X = LANE_DIVIDER_X - BUMPER_RADIUS - CUSTOM_SLOT_WALL_CLEARANCE;
     private static final float CUSTOM_SLOT_MIN_Y = 390.0f;
-    private static final float CUSTOM_SLOT_MAX_Y = WALL_TOP - 42.0f;
+    private static final float CUSTOM_SLOT_MAX_Y = WALL_TOP - BUMPER_RADIUS - CUSTOM_SLOT_WALL_CLEARANCE;
     private static final float PLACED_RAIL_HALF_LENGTH = 30.0f;
     private static final float PLACED_RAIL_RADIUS = 6.0f;
     private static final float SCORING_RAIL_RADIUS = 5.0f;
     private static final float SCORING_RAIL_CLEARANCE = 6.0f;
     private static final int STARTING_BALLS = 3;
-    private static final int STARTING_BUMPER_PARTS = 3;
-    private static final int STARTING_RAIL_PARTS = 2;
+    private static final int STARTING_BUMPER_PARTS = 2;
+    private static final int STARTING_RAIL_PARTS = 1;
+    private static final int REWARD_LEVEL_INTERVAL = 5;
+    private static final int REWARD_BUMPER_PARTS = 1;
+    private static final int REWARD_RAIL_PARTS = 1;
     public static final int PART_BUMPER = 0;
     public static final int PART_RAIL = 1;
     public static final int PART_EMPTY = -1;
@@ -71,7 +75,6 @@ public final class GameSimulation {
     private Vec2[] bumpers;
     private Vec2[] bumperSlots;
     private int[] placedPartTypes;
-    private int[][] savedPartTypesByTable = new int[TABLE_COUNT][];
     private int[] bumperValues;
     private float[] bumperGlow;
     private List<Rail> placedRails = Collections.emptyList();
@@ -109,6 +112,8 @@ public final class GameSimulation {
     private int coins;
     private boolean shopOpen;
     private boolean placementMode;
+    private boolean runLoadoutLocked;
+    private boolean rewardPlacementPending;
     private int bumperInventory;
     private int railInventory;
     private int placementSelection;
@@ -290,6 +295,30 @@ public final class GameSimulation {
         return placementPartType == PART_RAIL ? railInventory : bumperInventory;
     }
 
+    public boolean rewardPlacementPending() {
+        return rewardPlacementPending;
+    }
+
+    public int rewardBumperParts() {
+        return REWARD_BUMPER_PARTS;
+    }
+
+    public int rewardRailParts() {
+        return REWARD_RAIL_PARTS;
+    }
+
+    public int runPartCount(int partType) {
+        int count = 0;
+        if (placedPartTypes != null) {
+            for (int placedPart : placedPartTypes) {
+                if (placedPart == partType) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
     public List<Rail> placedRails() {
         return placedRails;
     }
@@ -323,16 +352,11 @@ public final class GameSimulation {
 
     public boolean placeSelectedPart() {
         if (!placementMode || slotPartType(placementSelection) != PART_EMPTY
-                || placementPartInventory() == 0
+                || runPartCount(placementPartType) >= placementPartInventory()
                 || !isPlacementAvailable(placementSelection, placementPartType)) {
             return false;
         }
         placedPartTypes[placementSelection] = placementPartType;
-        if (placementPartType == PART_RAIL) {
-            railInventory--;
-        } else {
-            bumperInventory--;
-        }
         refreshActiveParts();
         return true;
     }
@@ -343,11 +367,6 @@ public final class GameSimulation {
             return false;
         }
         placedPartTypes[placementSelection] = PART_EMPTY;
-        if (partType == PART_RAIL) {
-            railInventory++;
-        } else {
-            bumperInventory++;
-        }
         refreshActiveParts();
         return true;
     }
@@ -357,6 +376,8 @@ public final class GameSimulation {
             return;
         }
         placementMode = false;
+        runLoadoutLocked = true;
+        rewardPlacementPending = false;
         refreshActiveParts();
     }
 
@@ -639,15 +660,11 @@ public final class GameSimulation {
             default -> throw new IllegalStateException("Unknown table: " + table);
         }
         bumperSlots = buildPlacementSlots(table, generated);
-        int tableIndex = table - STARTING_LEVEL;
-        if (savedPartTypesByTable[tableIndex] == null
-                || savedPartTypesByTable[tableIndex].length != bumperSlots.length) {
-            savedPartTypesByTable[tableIndex] = emptyPartLayout(bumperSlots.length);
+        if (placedPartTypes == null || placedPartTypes.length != bumperSlots.length) {
+            placedPartTypes = emptyPartLayout(bumperSlots.length);
         }
-        placedPartTypes = savedPartTypesByTable[tableIndex];
         placementSelection = Math.min(placementSelection, bumperSlots.length - 1);
-        placementMode = true;
-        bumperValues = new int[]{20, 25, 30};
+        placementMode = !runLoadoutLocked || rewardPlacementPending;
         refreshActiveParts();
         validateLayout(generated, table);
         obstacles = Collections.unmodifiableList(generated);
@@ -766,6 +783,10 @@ public final class GameSimulation {
             if (placedPartTypes[slot] == PART_BUMPER) {
                 bumpers[bumperIndex++] = bumperSlots[slot];
             }
+        }
+        bumperValues = new int[bumperCount];
+        for (int index = 0; index < bumperValues.length; index++) {
+            bumperValues[index] = 20 + Math.min(index, 2) * 5;
         }
         placedRails = Collections.unmodifiableList(rails);
         bumperGlow = new float[bumpers.length];
@@ -1018,12 +1039,13 @@ public final class GameSimulation {
         coins = 0;
         shopOpen = false;
         placementMode = false;
+        runLoadoutLocked = false;
+        rewardPlacementPending = false;
         bumperInventory = STARTING_BUMPER_PARTS;
         railInventory = STARTING_RAIL_PARTS;
         placementSelection = 0;
         placementPartType = PART_BUMPER;
         placedPartTypes = null;
-        java.util.Arrays.fill(savedPartTypesByTable, null);
         shopSelection = 0;
         shopRefreshCost = 1;
         shopOptions = freshShopOptions(level);
@@ -1102,7 +1124,13 @@ public final class GameSimulation {
         drainEvent = true;
         if (score >= nextLevelScore && !shopOpen) {
             coins = Math.min(MAX_COINS, coins + score / 100);
+            boolean rewardMilestone = level % REWARD_LEVEL_INTERVAL == 0;
             level++;
+            if (rewardMilestone) {
+                bumperInventory += REWARD_BUMPER_PARTS;
+                railInventory += REWARD_RAIL_PARTS;
+                rewardPlacementPending = true;
+            }
             score = 0;
             nextLevelScore = level * BASE_LEVEL_TARGET;
             ballsRemaining = Math.min(lifeCount(), ballsRemaining + 1);

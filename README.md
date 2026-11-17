@@ -17,10 +17,11 @@ for alternating shots, table 3 uses offset shelves for broad cross-table
 routes, and table 4 enters from the left, climbs around the upper playfield,
 crosses the top, and exits at the upper-right before sending the ball downward
 into a bumper. All five tables now have 24 small placement slots spread around
-their playable areas. Slots start empty and a fresh run supplies three circular
-bumper pieces and two line-rail pieces. The player chooses which slots to fill
-before starting each table. The HUD shows both the current table and the
-overall progression.
+their playable areas. A fresh run supplies two circular bumper parts and one
+line-rail part. The player arranges the run loadout once before the first table;
+the same logical build is mapped to compatible slots on every table. Slots
+retain a safety margin from the table walls and launcher divider. The HUD shows
+both the current table and the overall progression.
 
 Progression advances from 1 to 2 to 3 to 4 to 5 and then selects tables 1, 2,
 3, 4, and 5 again. The score target continues increasing across the loop (350,
@@ -145,17 +146,24 @@ and game-over behavior are shared across all five tables.
 
 ## Board customization
 
-When any table begins, play is paused in placement mode. Use `Up` / `Down` to
-select one of the 24 slots, `A` / `D` to choose between the circular bumper and
-line-rail part, `B` to place the selected available part, and `X` to remove the
-part from the selected slot. Press `Enter` to start the table. Slot markers are
-small and visible only during editing; placed bumpers retain their normal size,
-and line parts become solid deflecting rails during play. Placement edits are
-accepted only before play starts. The overlay shows both inventories and the
-selected part. The selected board configuration and unused inventory persist
-across table transitions during the current run; each table has its own saved
-layout. Resetting with `R` clears every table board and restores the three
-bumper and two rail test parts.
+At the start of a new run, play is paused in a one-time loadout setup. Use
+`Up` / `Down` to select one of the 24 slots, `A` / `D` to choose between the
+circular bumper and line-rail part, `B` to place a part, and `X` to remove it.
+Parts are reusable: placement does not consume inventory, but the loadout
+cannot contain more parts of a type than the owned inventory. Press `Enter` to
+lock the loadout and start the run. Slot markers are small and visible only
+during editing; placed bumpers retain their normal size, and line parts become
+solid deflecting rails during play.
+
+Every five completed levels awards one additional circular bumper and one
+line-rail part, then opens the existing coin shop. Other level completions open
+only the shop. After leaving the shop at a five-level milestone, the next table
+shows the reward setup screen so both new parts can be arranged. Press `Enter`
+to lock the updated loadout for the rest of the run. The same logical build is
+mapped to compatible positions on each table, so the player is not asked to
+rebuild at ordinary transitions.
+Resetting with `R` clears run-earned parts and the loadout, restoring the two
+starting bumper parts and one line-rail part.
 
 ## Between-level shop
 
